@@ -65,3 +65,6 @@ def write_stream(event_handler):
         event_handler=event_handler,
     ) as stream:
         stream.until_done()
+
+def logout():
+    st.session_state.authenticator.logout(location='unrendered')
