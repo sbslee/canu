@@ -57,3 +57,11 @@ def on_text_delta(self, delta, snapshot):
                 delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{cited_file.filename}">[❞]</a>""")
     self.container.blocks[-1]["content"] += delta.value
     self.container.write_blocks(stream=True)
+
+def write_stream(event_handler):
+    with st.session_state.client.beta.threads.runs.stream(
+        thread_id=st.session_state.thread.id,
+        assistant_id=st.session_state.assistant.id,
+        event_handler=event_handler,
+    ) as stream:
+        stream.until_done()
