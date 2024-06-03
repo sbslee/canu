@@ -44,6 +44,16 @@ class EventHandler(openai.AssistantEventHandler):
         self.container.blocks[-1]["content"] += delta.value
         self.container.write_blocks(stream=True)
 
+    def on_image_file_done(self, image_file):
+        if self.container is None:
+            self.container = canu.Container("assistant", [])
+        if not self.container.blocks or self.container.blocks[-1]['type'] != 'image':
+            self.container.blocks.append({'type': 'image', 'content': ""})
+        image_data = st.session_state.client.files.content(image_file.file_id)
+        image_data_bytes = image_data.read()
+        self.container.blocks[-1]["content"] = image_data_bytes
+        self.container.write_blocks(stream=True)
+
     def on_end(self):
         if self.container is not None:
             st.session_state.containers.append(self.container)

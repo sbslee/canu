@@ -3,6 +3,7 @@
 ## 0.3.0 (in development)
 * Add the `canu.functions.retrieve_from_web` method.
 * Add the `canu.functions.generate_image` method.
+* Add the `canu.EventHandler.on_image_file_done` method.
 
 ## 0.2.0 (2024-06-02)
 * Add the `canu.write_stream` method.
