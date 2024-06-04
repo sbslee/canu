@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.4.0 (in development)
+
 ## 0.3.0 (2024-06-04)
 * Add the `canu.functions.retrieve_from_web` method.
 * Add the `canu.functions.generate_image` method.
