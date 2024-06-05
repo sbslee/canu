@@ -98,3 +98,20 @@ def write_stream(event_handler=None):
 
 def logout():
     st.session_state.authenticator.logout(location='unrendered')
+
+def show_login_page():
+    st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name':'로그인', 'Username':'아이디', 'Password':'비밀번호', 'Login':'로그인'})
+    if st.session_state.authentication_status:
+        st.session_state.page = "chatbot"
+        st.rerun()
+    elif st.session_state.authentication_status is False:
+        st.error("아이디 또는 비밀번호가 잘못되었습니다.")
+    elif st.session_state.authentication_status is None:
+        pass
+
+def show_profile_page():
+    if st.session_state.authenticator.reset_password(st.session_state.username):
+        st.success("비밀번호가 성공적으로 변경되었습니다.")
+        update_yaml_file()
+        st.session_state.page = "chatbot"
+        st.rerun()
