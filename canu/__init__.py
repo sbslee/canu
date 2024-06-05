@@ -63,6 +63,8 @@ def update_yaml_file():
         yaml.dump(st.session_state.config, f, allow_unicode=True)
 
 def authenticate():
+    if "page" not in st.session_state:
+        st.session_state.page = "login"
     if "authenticator" not in st.session_state:
         with open("./auth.yaml") as f:
             config = yaml.load(f, Loader=yaml.loader.SafeLoader)
