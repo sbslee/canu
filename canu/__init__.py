@@ -115,3 +115,6 @@ def show_profile_page():
         update_yaml_file()
         st.session_state.page = "chatbot"
         st.rerun()
+
+def set_page(page):
+    st.session_state.page = page
