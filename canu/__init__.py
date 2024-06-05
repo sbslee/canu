@@ -96,9 +96,6 @@ def write_stream(event_handler=None):
     ) as stream:
         stream.until_done()
 
-def logout():
-    st.session_state.authenticator.logout(location='unrendered')
-
 def show_login_page():
     st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name':'로그인', 'Username':'아이디', 'Password':'비밀번호', 'Login':'로그인'})
     if st.session_state.authentication_status:
