@@ -1,4 +1,4 @@
-import yaml
+import time, yaml
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
@@ -107,8 +107,10 @@ def show_login_page():
         pass
 
 def show_profile_page():
-    if st.session_state.authenticator.reset_password(st.session_state.username):
+    st.button("돌아가기", on_click=lambda: set_page("chatbot"))
+    if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name':'비밀번호 변경', 'Current password':'현재 비밀번호', 'New password':'새로운 비밀번호', 'Repeat password': '새로운 비밀번호 확인', 'Reset':'변경'}):
         st.success("비밀번호가 성공적으로 변경되었습니다.")
+        time.sleep(3)
         update_yaml_file()
         st.session_state.page = "chatbot"
         st.rerun()
