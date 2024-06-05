@@ -58,15 +58,21 @@ class EventHandler(openai.AssistantEventHandler):
         if self.container is not None:
             st.session_state.containers.append(self.container)
 
-def get_authenticator(yaml_file):
-    with open(yaml_file) as f:
-        config = yaml.load(f, Loader=yaml.loader.SafeLoader)
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['key'],
-    )
-    return authenticator
+def update_yaml_file():
+    with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
+        yaml.dump(st.session_state.config, f, allow_unicode=True)
+
+def authenticate():
+    if "authenticator" not in st.session_state:
+        with open("./auth.yaml") as f:
+            config = yaml.load(f, Loader=yaml.loader.SafeLoader)
+        authenticator = stauth.Authenticate(
+            config['credentials'],
+            config['cookie']['name'],
+            config['cookie']['key'],
+        )
+        st.session_state.config = config
+        st.session_state.authenticator = authenticator
 
 def add_message(role, content):
     st.session_state.client.beta.threads.messages.create(

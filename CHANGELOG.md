@@ -1,6 +1,8 @@
 # CHANGELOG
 
 ## 0.4.0 (in development)
+* Rename the `canu.get_authenticator` method to `canu.authenticate`.
+* Add the `canu.update_yaml_file` method.
 
 ## 0.3.0 (2024-06-04)
 * Add the `canu.functions.retrieve_from_web` method.
