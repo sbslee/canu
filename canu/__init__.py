@@ -1,4 +1,4 @@
-import yaml
+import time, yaml
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
@@ -58,15 +58,23 @@ class EventHandler(openai.AssistantEventHandler):
         if self.container is not None:
             st.session_state.containers.append(self.container)
 
-def get_authenticator(yaml_file):
-    with open(yaml_file) as f:
-        config = yaml.load(f, Loader=yaml.loader.SafeLoader)
-    authenticator = stauth.Authenticate(
-        config['credentials'],
-        config['cookie']['name'],
-        config['cookie']['key'],
-    )
-    return authenticator
+def update_yaml_file():
+    with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
+        yaml.dump(st.session_state.config, f, allow_unicode=True)
+
+def authenticate():
+    if "page" not in st.session_state:
+        st.session_state.page = "login"
+    if "authenticator" not in st.session_state:
+        with open("./auth.yaml") as f:
+            config = yaml.load(f, Loader=yaml.loader.SafeLoader)
+        authenticator = stauth.Authenticate(
+            config['credentials'],
+            config['cookie']['name'],
+            config['cookie']['key'],
+        )
+        st.session_state.config = config
+        st.session_state.authenticator = authenticator
 
 def add_message(role, content):
     st.session_state.client.beta.threads.messages.create(
@@ -88,5 +96,24 @@ def write_stream(event_handler=None):
     ) as stream:
         stream.until_done()
 
-def logout():
-    st.session_state.authenticator.logout(location='unrendered')
+def show_login_page():
+    st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name':'로그인', 'Username':'아이디', 'Password':'비밀번호', 'Login':'로그인'})
+    if st.session_state.authentication_status:
+        st.session_state.page = "chatbot"
+        st.rerun()
+    elif st.session_state.authentication_status is False:
+        st.error("아이디 또는 비밀번호가 잘못되었습니다.")
+    elif st.session_state.authentication_status is None:
+        pass
+
+def show_profile_page():
+    st.button("돌아가기", on_click=lambda: set_page("chatbot"))
+    if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name':'비밀번호 변경', 'Current password':'현재 비밀번호', 'New password':'새로운 비밀번호', 'Repeat password': '새로운 비밀번호 확인', 'Reset':'변경'}):
+        st.success("비밀번호가 성공적으로 변경되었습니다.")
+        time.sleep(3)
+        update_yaml_file()
+        st.session_state.page = "chatbot"
+        st.rerun()
+
+def set_page(page):
+    st.session_state.page = page

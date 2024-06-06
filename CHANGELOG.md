@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 0.4.0 (2024-06-06)
+* Rename the `canu.get_authenticator` method to `canu.authenticate`.
+* Add the `canu.update_yaml_file` method.
+* Add the `canu.show_login_page` method.
+* Add the `canu.show_profile_page` method.
+* Add the `canu.set_page` method.
+* Remove the `canu.logout` method.
+
 ## 0.3.0 (2024-06-04)
 * Add the `canu.functions.retrieve_from_web` method.
 * Add the `canu.functions.generate_image` method.
