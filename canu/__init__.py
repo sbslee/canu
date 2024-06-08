@@ -107,7 +107,10 @@ def show_login_page():
         pass
 
 def show_profile_page():
-    st.button("돌아가기", on_click=lambda: set_page("chatbot"))
+    uploaded_files = get_uploaded_files()
+    if st.button("돌아가기"):
+        st.session_state.page = "chatbot"
+        st.rerun()
     if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name':'비밀번호 변경', 'Current password':'현재 비밀번호', 'New password':'새로운 비밀번호', 'Repeat password': '새로운 비밀번호 확인', 'Reset':'변경'}):
         st.success("비밀번호가 성공적으로 변경되었습니다.")
         time.sleep(3)
@@ -115,5 +118,10 @@ def show_profile_page():
         st.session_state.page = "chatbot"
         st.rerun()
 
-def set_page(page):
-    st.session_state.page = page
+def get_uploaded_files():
+    uploaded_files = st.sidebar.file_uploader(
+        "파일 업로드",
+        accept_multiple_files=True,
+        key=st.session_state.file_uploader_key
+    )
+    return uploaded_files
