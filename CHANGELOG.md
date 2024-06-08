@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.5.0 (in development)
+## 0.5.0 (2024-06-08)
 * Add the `canu.get_uploaded_files` method.
 * Remove the `canu.set_page` method.
 
