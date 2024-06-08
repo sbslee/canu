@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## 0.5.0 (2024-06-08)
+* Add the `canu.get_uploaded_files` method.
+* Remove the `canu.set_page` method.
+
 ## 0.4.0 (2024-06-06)
 * Rename the `canu.get_authenticator` method to `canu.authenticate`.
 * Add the `canu.update_yaml_file` method.
