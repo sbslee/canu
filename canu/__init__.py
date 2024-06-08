@@ -107,7 +107,8 @@ def show_login_page():
         pass
 
 def show_profile_page():
-    uploaded_files = get_uploaded_files()
+    if "file_uploader_key" in st.session_state:
+        uploaded_files = get_uploaded_files()
     if st.button("돌아가기"):
         st.session_state.page = "chatbot"
         st.rerun()
