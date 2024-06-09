@@ -27,9 +27,9 @@ class Container():
             self._write_blocks()
 
 class EventHandler(openai.AssistantEventHandler):
-    def __init__(self):
+    def __init__(self, container=None):
         super().__init__()
-        self.container = None
+        self.container = container
 
     def on_text_delta(self, delta, snapshot):
         if self.container is None:
@@ -46,7 +46,7 @@ class EventHandler(openai.AssistantEventHandler):
 
     def on_image_file_done(self, image_file):
         if self.container is None:
-            self.container = canu.Container("assistant", [])
+            self.container = Container("assistant", [])
         if not self.container.blocks or self.container.blocks[-1]['type'] != 'image':
             self.container.blocks.append({'type': 'image', 'content': ""})
         image_data = st.session_state.client.files.content(image_file.file_id)
@@ -54,9 +54,35 @@ class EventHandler(openai.AssistantEventHandler):
         self.container.blocks[-1]["content"] = image_data_bytes
         self.container.write_blocks(stream=True)
 
+    def on_tool_call_delta(self, delta, snapshot):
+        if delta.type == "function":
+            pass
+        elif delta.type == "code_interpreter":
+            if self.container is None:
+                self.container = Container("assistant", [])
+            if delta.code_interpreter.input:
+                if not self.container.blocks or self.container.blocks[-1]['type'] != 'code':
+                    self.container.blocks.append({'type': 'code', 'content': ""})
+                self.container.blocks[-1]["content"] += delta.code_interpreter.input
+            self.container.write_blocks(stream=True)
+
+    def submit_tool_outputs(self, tool_outputs, run_id):
+        with st.session_state.client.beta.threads.runs.submit_tool_outputs_stream(
+            thread_id=self.current_run.thread_id,
+            run_id=self.current_run.id,
+            tool_outputs=tool_outputs,
+            event_handler=EventHandler(self.container),
+        ) as stream:
+            stream.until_done()
+
     def on_end(self):
         if self.container is not None:
             st.session_state.containers.append(self.container)
+
+    def on_event(self, event):
+        if event.event == 'thread.run.requires_action':
+            run_id = event.data.id
+            self.handle_requires_action(event.data, run_id)
 
 def update_yaml_file():
     with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:

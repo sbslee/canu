@@ -1,6 +1,9 @@
 # CHANGELOG
 
-## 0.6.0 (in development)
+## 0.6.0 (2024-06-09)
+* Add the `canu.EventHandler.on_event` method.
+* Add the `canu.EventHandler.on_tool_call_delta` method.
+* Add the `canu.EventHandler.submit_tool_outputs` method.
 
 ## 0.5.0 (2024-06-08)
 * Add the `canu.get_uploaded_files` method.
