@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.7.0 (in development)
+
 ## 0.6.0 (2024-06-09)
 * Add the `canu.EventHandler.on_event` method.
 * Add the `canu.EventHandler.on_tool_call_delta` method.
