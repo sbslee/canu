@@ -164,24 +164,27 @@ def show_history_page():
         os.mkdir("./users")
     if not os.path.isdir(f"./users/{st.session_state.username}"):
         os.mkdir(f"./users/{st.session_state.username}")
+    st.header("현재 이 대화를 저장하고 싶다면:")
     with st.form("대화 저장", clear_on_submit=True):
         file_name = st.text_input("저장할 대화 이름을 입력하세요.")
-        submitted = st.form_submit_button("Submit")
+        submitted = st.form_submit_button("저장")
         if submitted:
             data = []
             for container in st.session_state.containers:
                 data.append([container.role, container.blocks])
             with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
                 pickle.dump(data, f)
+    st.header("과거에 저장한 대화를 불러오려면:")
     files = os.listdir(f"./users/{st.session_state.username}")
     files = [x for x in files if x.endswith('.pkl')]
     st.write(f"{len(files)}개의 대화가 저장되어 있습니다.")
-    for file in files:
-        if st.button(f"{file.replace('.pkl', '')} 불러오기"):
-            st.session_state.containers = []
-            with open(f"./users/{st.session_state.username}/{file}", 'rb') as f:
-                data = pickle.load(f)
-                for container in data:
-                    st.session_state.containers.append(Container(container[0], container[1]))
-            st.session_state.page = "chatbot"
-            st.rerun()
+    options = [x.replace('.pkl', '') for x in files]
+    option = st.selectbox("불러올 대화를 선택해주세요.", options)
+    if option is not None and st.button("불러오기"):
+        st.session_state.containers = []
+        with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
+            data = pickle.load(f)
+            for container in data:
+                st.session_state.containers.append(Container(container[0], container[1]))
+        st.session_state.page = "chatbot"
+        st.rerun()
