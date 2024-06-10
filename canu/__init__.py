@@ -1,4 +1,4 @@
-import time, yaml
+import os, time, yaml, pickle
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
@@ -152,3 +152,31 @@ def get_uploaded_files():
         key=st.session_state.file_uploader_key
     )
     return uploaded_files
+
+def show_history_page():
+    if "file_uploader_key" in st.session_state:
+        uploaded_files = get_uploaded_files()
+    if st.button("돌아가기"):
+        st.session_state.page = "chatbot"
+        st.rerun()
+    with st.form("대화 저장", clear_on_submit=True):
+        file_name = st.text_input("저장할 대화 이름을 입력하세요.")
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            data = []
+            for container in st.session_state.containers:
+                data.append([container.role, container.blocks])
+            with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
+                pickle.dump(data, f)
+    files = os.listdir(f"./users/{st.session_state.username}")
+    files = [x for x in files if x.endswith('.pkl')]
+    st.write(f"{len(files)}개의 대화가 저장되어 있습니다.")
+    for file in files:
+        if st.button(f"{file.replace('.pkl', '')} 불러오기"):
+            st.session_state.containers = []
+            with open(f"./users/{st.session_state.username}/{file}", 'rb') as f:
+                data = pickle.load(f)
+                for container in data:
+                    st.session_state.containers.append(Container(container[0], container[1]))
+            st.session_state.page = "chatbot"
+            st.rerun()

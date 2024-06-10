@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.7.0 (in development)
+* Add the `canu.show_history_page` method.
 
 ## 0.6.0 (2024-06-09)
 * Add the `canu.EventHandler.on_event` method.
