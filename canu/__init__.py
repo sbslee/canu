@@ -160,6 +160,10 @@ def show_history_page():
     if st.button("돌아가기"):
         st.session_state.page = "chatbot"
         st.rerun()
+    if not os.path.isdir("./users"):
+        os.mkdir("./users")
+    if not os.path.isdir(f"./users/{st.session_state.username}"):
+        os.mkdir(f"./users/{st.session_state.username}")
     with st.form("대화 저장", clear_on_submit=True):
         file_name = st.text_input("저장할 대화 이름을 입력하세요.")
         submitted = st.form_submit_button("Submit")
