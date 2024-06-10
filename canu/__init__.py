@@ -30,6 +30,7 @@ class EventHandler(openai.AssistantEventHandler):
     def __init__(self, container=None):
         super().__init__()
         self.container = container
+        self.redundant = container is not None
 
     def on_text_delta(self, delta, snapshot):
         if self.container is None:
@@ -76,7 +77,7 @@ class EventHandler(openai.AssistantEventHandler):
             stream.until_done()
 
     def on_end(self):
-        if self.container is not None:
+        if self.container is not None and not self.redundant:
             st.session_state.containers.append(self.container)
 
     def on_event(self, event):
