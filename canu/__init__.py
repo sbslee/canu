@@ -1,4 +1,5 @@
-import os, time, yaml, pickle
+import os, time, yaml, pickle, tempfile
+from pathlib import Path
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
@@ -188,3 +189,48 @@ def show_history_page():
                 st.session_state.containers.append(Container(container[0], container[1]))
         st.session_state.page = "chatbot"
         st.rerun()
+
+def handle_files():
+    uploaded_files = get_uploaded_files()
+
+    for uploaded_file in uploaded_files:
+        upload_id = uploaded_file.file_id
+        file_name = uploaded_file.name
+        if upload_id in st.session_state.upload_ids:
+            continue
+        with tempfile.TemporaryDirectory() as t:
+            file_path = os.path.join(t, file_name)
+
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getvalue())
+            add_message("user", f"파일 업로드: `{file_name}`")
+            if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".jpeg"):
+                file = st.session_state.client.files.create(file=Path(file_path), purpose="vision")
+                content=[
+                    {"type": "text", "text": f"파일 업로드: `{file_name}`"},
+                    {"type": "image_file", "image_file": {"file_id": file.id}}
+                ]
+                st.session_state.client.beta.threads.messages.create(
+                    thread_id=st.session_state.thread.id,
+                    role="user",
+                    content=content,
+                )
+            else:
+                file = st.session_state.client.files.create(file=Path(file_path), purpose="assistants")
+                attachments = [{"file_id": file.id, "tools": [{"type": "file_search"}, {"type": "code_interpreter"}]}]
+                content=[{"type": "text", "text": f"파일 업로드: `{file_name}`"}]
+                st.session_state.client.beta.threads.messages.create(
+                    thread_id=st.session_state.thread.id,
+                    role="user",
+                    content=content,
+                    attachments=attachments,
+                )
+            st.session_state.upload_ids[upload_id] = {'file_id': file.id, 'file_name': file_name}
+
+    for upload_id, upload_data in list(st.session_state.upload_ids.items()):
+        file_name = upload_data["file_name"]
+        file_id = upload_data["file_id"]
+        if upload_id not in [x.file_id for x in uploaded_files]:
+            st.session_state.client.files.delete(file_id)
+            add_message("user", f"파일 삭제: `{file_name}`")
+            del st.session_state.upload_ids[upload_id]
