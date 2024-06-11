@@ -1,4 +1,5 @@
-import time, yaml
+import os, time, yaml, pickle, tempfile, base64
+from pathlib import Path
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
@@ -8,6 +9,7 @@ class Container():
         self.container = st.empty()
         self.role = role
         self.blocks = blocks
+        self.code_interpreter_files = {}
 
     def _write_blocks(self):
         with st.chat_message(self.role):
@@ -18,6 +20,18 @@ class Container():
                     st.code(block['content'])
                 elif block['type'] == 'image':
                     st.image(block['content'])
+            if self.code_interpreter_files:
+                for filename, content in self.code_interpreter_files.items():
+                    if filename.endswith('.csv'):
+                        mime = "text/csv"
+                    else:
+                        mime = "text/plain"
+                    st.download_button(
+                        label=f"{filename}",
+                        data=content,
+                        file_name=filename,
+                        mime=mime
+                    )
 
     def write_blocks(self, stream=False):
         if stream:
@@ -30,6 +44,7 @@ class EventHandler(openai.AssistantEventHandler):
     def __init__(self, container=None):
         super().__init__()
         self.container = container
+        self.redundant = container is not None
 
     def on_text_delta(self, delta, snapshot):
         if self.container is None:
@@ -39,9 +54,15 @@ class EventHandler(openai.AssistantEventHandler):
         if delta.annotations is not None:
             for annotation in delta.annotations:
                 if annotation.type == "file_citation":
-                    cited_file = st.session_state.client.files.retrieve(annotation.file_citation.file_id)
-                    delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{cited_file.filename}">[❞]</a>""")
-        self.container.blocks[-1]["content"] += delta.value
+                    file = st.session_state.client.files.retrieve(annotation.file_citation.file_id)
+                    delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{file.filename}">[❞]</a>""")
+                elif annotation.type == "file_path":
+                    file = st.session_state.client.files.retrieve(annotation.file_path.file_id)
+                    content = st.session_state.client.files.content(file.id)
+                    filename = os.path.basename(file.filename)
+                    self.container.code_interpreter_files[filename] = content.read()
+        if delta.value is not None:
+            self.container.blocks[-1]["content"] += delta.value
         self.container.write_blocks(stream=True)
 
     def on_image_file_done(self, image_file):
@@ -76,7 +97,7 @@ class EventHandler(openai.AssistantEventHandler):
             stream.until_done()
 
     def on_end(self):
-        if self.container is not None:
+        if self.container is not None and not self.redundant:
             st.session_state.containers.append(self.container)
 
     def on_event(self, event):
@@ -152,3 +173,93 @@ def get_uploaded_files():
         key=st.session_state.file_uploader_key
     )
     return uploaded_files
+
+def show_history_page():
+    if "file_uploader_key" in st.session_state:
+        uploaded_files = get_uploaded_files()
+    if st.button("돌아가기"):
+        st.session_state.page = "chatbot"
+        st.rerun()
+    if not os.path.isdir("./users"):
+        os.mkdir("./users")
+    if not os.path.isdir(f"./users/{st.session_state.username}"):
+        os.mkdir(f"./users/{st.session_state.username}")
+    st.header("현재 이 대화를 저장하고 싶다면:")
+    with st.form("대화 저장", clear_on_submit=True):
+        file_name = st.text_input("저장할 대화 이름을 입력하세요.")
+        submitted = st.form_submit_button("저장")
+        if submitted:
+            data = []
+            for container in st.session_state.containers:
+                data.append([container.role, container.blocks])
+            with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
+                pickle.dump(data, f)
+    st.header("과거에 저장한 대화를 불러오려면:")
+    files = os.listdir(f"./users/{st.session_state.username}")
+    files = [x for x in files if x.endswith('.pkl')]
+    st.write(f"{len(files)}개의 대화가 저장되어 있습니다.")
+    options = [x.replace('.pkl', '') for x in files]
+    option = st.selectbox("불러올 대화를 선택해주세요.", options)
+    if option is not None and st.button("불러오기"):
+        st.session_state.containers = []
+        with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
+            data = pickle.load(f)
+            for container in data:
+                st.session_state.containers.append(Container(container[0], container[1]))
+        st.session_state.page = "chatbot"
+        st.rerun()
+
+def handle_files():
+    supported_files = {
+        "file_search": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.texv', '.txt', '.css', '.js', '.sh', '.ts'],
+        "code_interpreter": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.tex', '.txt', '.css', '.js', '.sh', '.ts', '.csv', '.jpeg', '.jpg', '.gif', '.png', '.tar', '.xlsx', '.xml', '.zip']
+    }
+
+    uploaded_files = get_uploaded_files()
+
+    for uploaded_file in uploaded_files:
+        upload_id = uploaded_file.file_id
+        file_name = uploaded_file.name
+        if upload_id in st.session_state.upload_ids:
+            continue
+        with tempfile.TemporaryDirectory() as t:
+            file_path = os.path.join(t, file_name)
+
+            with open(file_path, "wb") as f:
+                f.write(uploaded_file.getvalue())
+            add_message("user", f"파일 업로드: `{file_name}`")
+            if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".jpeg"):
+                file = st.session_state.client.files.create(file=Path(file_path), purpose="vision")
+                content=[
+                    {"type": "text", "text": f"파일 업로드: `{file_name}`"},
+                    {"type": "image_file", "image_file": {"file_id": file.id}}
+                ]
+                st.session_state.client.beta.threads.messages.create(
+                    thread_id=st.session_state.thread.id,
+                    role="user",
+                    content=content,
+                )
+            else:
+                file = st.session_state.client.files.create(file=Path(file_path), purpose="assistants")
+                tools = []
+                if file_name.endswith(tuple(supported_files["file_search"])):
+                    tools.append({"type": "file_search"})
+                if file_name.endswith(tuple(supported_files["code_interpreter"])):
+                    tools.append({"type": "code_interpreter"})
+                attachments = [{"file_id": file.id, "tools": tools}]
+                content=[{"type": "text", "text": f"파일 업로드: `{file_name}`"}]
+                st.session_state.client.beta.threads.messages.create(
+                    thread_id=st.session_state.thread.id,
+                    role="user",
+                    content=content,
+                    attachments=attachments,
+                )
+            st.session_state.upload_ids[upload_id] = {'file_id': file.id, 'file_name': file_name}
+
+    for upload_id, upload_data in list(st.session_state.upload_ids.items()):
+        file_name = upload_data["file_name"]
+        file_id = upload_data["file_id"]
+        if upload_id not in [x.file_id for x in uploaded_files]:
+            st.session_state.client.files.delete(file_id)
+            add_message("user", f"파일 삭제: `{file_name}`")
+            del st.session_state.upload_ids[upload_id]
