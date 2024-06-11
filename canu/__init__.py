@@ -191,6 +191,11 @@ def show_history_page():
         st.rerun()
 
 def handle_files():
+    supported_files = {
+        "file_search": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.texv', '.txt', '.css', '.js', '.sh', '.ts'],
+        "code_interpreter": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.tex', '.txt', '.css', '.js', '.sh', '.ts', '.csv', '.jpeg', '.jpg', '.gif', '.png', '.tar', '.xlsx', '.xml', '.zip']
+    }
+
     uploaded_files = get_uploaded_files()
 
     for uploaded_file in uploaded_files:
@@ -217,7 +222,12 @@ def handle_files():
                 )
             else:
                 file = st.session_state.client.files.create(file=Path(file_path), purpose="assistants")
-                attachments = [{"file_id": file.id, "tools": [{"type": "file_search"}, {"type": "code_interpreter"}]}]
+                tools = []
+                if file_name.endswith(tuple(supported_files["file_search"])):
+                    tools.append({"type": "file_search"})
+                if file_name.endswith(tuple(supported_files["code_interpreter"])):
+                    tools.append({"type": "code_interpreter"})
+                attachments = [{"file_id": file.id, "tools": tools}]
                 content=[{"type": "text", "text": f"파일 업로드: `{file_name}`"}]
                 st.session_state.client.beta.threads.messages.create(
                     thread_id=st.session_state.thread.id,
