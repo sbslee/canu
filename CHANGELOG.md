@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.7.0 (in development)
+## 0.7.0 (2024-06-11)
 * Add the `canu.show_history_page` method.
 * Add the `canu.EventHandler.redundant` attribute.
 * Add the `canu.handle_files` method.
