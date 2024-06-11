@@ -1,4 +1,4 @@
-import os, time, yaml, pickle, tempfile
+import os, time, yaml, pickle, tempfile, base64
 from pathlib import Path
 import streamlit as st
 import streamlit_authenticator as stauth
@@ -9,6 +9,7 @@ class Container():
         self.container = st.empty()
         self.role = role
         self.blocks = blocks
+        self.code_interpreter_files = {}
 
     def _write_blocks(self):
         with st.chat_message(self.role):
@@ -19,6 +20,18 @@ class Container():
                     st.code(block['content'])
                 elif block['type'] == 'image':
                     st.image(block['content'])
+            if self.code_interpreter_files:
+                for filename, content in self.code_interpreter_files.items():
+                    if filename.endswith('.csv'):
+                        mime = "text/csv"
+                    else:
+                        mime = "text/plain"
+                    st.download_button(
+                        label=f"{filename}",
+                        data=content,
+                        file_name=filename,
+                        mime=mime
+                    )
 
     def write_blocks(self, stream=False):
         if stream:
@@ -41,9 +54,15 @@ class EventHandler(openai.AssistantEventHandler):
         if delta.annotations is not None:
             for annotation in delta.annotations:
                 if annotation.type == "file_citation":
-                    cited_file = st.session_state.client.files.retrieve(annotation.file_citation.file_id)
-                    delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{cited_file.filename}">[❞]</a>""")
-        self.container.blocks[-1]["content"] += delta.value
+                    file = st.session_state.client.files.retrieve(annotation.file_citation.file_id)
+                    delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{file.filename}">[❞]</a>""")
+                elif annotation.type == "file_path":
+                    file = st.session_state.client.files.retrieve(annotation.file_path.file_id)
+                    content = st.session_state.client.files.content(file.id)
+                    filename = os.path.basename(file.filename)
+                    self.container.code_interpreter_files[filename] = content.read()
+        if delta.value is not None:
+            self.container.blocks[-1]["content"] += delta.value
         self.container.write_blocks(stream=True)
 
     def on_image_file_done(self, image_file):

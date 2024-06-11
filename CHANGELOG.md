@@ -4,6 +4,7 @@
 * Add the `canu.show_history_page` method.
 * Add the `canu.EventHandler.redundant` attribute.
 * Add the `canu.handle_files` method.
+* Add the `canu.Container.code_interpreter_files` attribute.
 
 ## 0.6.0 (2024-06-09)
 * Add the `canu.EventHandler.on_event` method.
