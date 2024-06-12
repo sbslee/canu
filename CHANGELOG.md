@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 0.8.0 (2024-06-12)
+* Add the `canu.list_messages` method.
+* Add the `canu.delete_messages` method.
+* Add the `canu.create_message` method.
+* Add the `canu.Container.get_content` method.
+
 ## 0.7.0 (2024-06-11)
 * Add the `canu.show_history_page` method.
 * Add the `canu.EventHandler.redundant` attribute.

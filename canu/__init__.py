@@ -24,6 +24,8 @@ class Container():
                 for filename, content in self.code_interpreter_files.items():
                     if filename.endswith('.csv'):
                         mime = "text/csv"
+                    elif filename.endswith('.png'):
+                        mime = "image/png"
                     else:
                         mime = "text/plain"
                     st.download_button(
@@ -32,6 +34,13 @@ class Container():
                         file_name=filename,
                         mime=mime
                     )
+
+    def get_content(self):
+        content = []
+        for block in self.blocks:
+            if block['type'] == 'text':
+                content.append({"type": "text", "text": block['content']})
+        return content
 
     def write_blocks(self, stream=False):
         if stream:
@@ -124,11 +133,7 @@ def authenticate():
         st.session_state.authenticator = authenticator
 
 def add_message(role, content):
-    st.session_state.client.beta.threads.messages.create(
-        thread_id=st.session_state.thread.id,
-        role=role,
-        content=content
-    )
+    create_message(role, content)
     st.session_state.containers.append(
         Container(role, [{'type': 'text', 'content': content}])
     )
@@ -156,7 +161,7 @@ def show_login_page():
 def show_profile_page():
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
-    if st.button("돌아가기"):
+    if st.sidebar.button("돌아가기"):
         st.session_state.page = "chatbot"
         st.rerun()
     if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name':'비밀번호 변경', 'Current password':'현재 비밀번호', 'New password':'새로운 비밀번호', 'Repeat password': '새로운 비밀번호 확인', 'Reset':'변경'}):
@@ -177,14 +182,14 @@ def get_uploaded_files():
 def show_history_page():
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
-    if st.button("돌아가기"):
+    if st.sidebar.button("돌아가기"):
         st.session_state.page = "chatbot"
         st.rerun()
     if not os.path.isdir("./users"):
         os.mkdir("./users")
     if not os.path.isdir(f"./users/{st.session_state.username}"):
         os.mkdir(f"./users/{st.session_state.username}")
-    st.header("현재 이 대화를 저장하고 싶다면:")
+    st.header("현재 대화")
     with st.form("대화 저장", clear_on_submit=True):
         file_name = st.text_input("저장할 대화 이름을 입력하세요.")
         submitted = st.form_submit_button("저장")
@@ -194,20 +199,31 @@ def show_history_page():
                 data.append([container.role, container.blocks])
             with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
                 pickle.dump(data, f)
-    st.header("과거에 저장한 대화를 불러오려면:")
+    st.header("과거 대화")
     files = os.listdir(f"./users/{st.session_state.username}")
     files = [x for x in files if x.endswith('.pkl')]
     st.write(f"{len(files)}개의 대화가 저장되어 있습니다.")
     options = [x.replace('.pkl', '') for x in files]
-    option = st.selectbox("불러올 대화를 선택해주세요.", options)
-    if option is not None and st.button("불러오기"):
-        st.session_state.containers = []
-        with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
-            data = pickle.load(f)
-            for container in data:
-                st.session_state.containers.append(Container(container[0], container[1]))
-        st.session_state.page = "chatbot"
-        st.rerun()
+    option = st.selectbox("대화를 선택해주세요.", options)
+    col1, col2 = st.columns((1, 6))
+    with col1:
+        if option is not None and st.button("불러오기"):
+            delete_messages()
+            st.session_state.containers = []
+            with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
+                data = pickle.load(f)
+                for x in data:
+                    role = x[0]
+                    blocks = x[1]
+                    container = Container(role, blocks)
+                    st.session_state.containers.append(container)
+                    create_message(role, container.get_content())
+            st.session_state.page = "chatbot"        
+            st.rerun()
+    with col2:
+        if option is not None and st.button("삭제하기"):
+            os.remove(f"./users/{st.session_state.username}/{option}.pkl")
+            st.rerun()
 
 def handle_files():
     supported_files = {
@@ -263,3 +279,24 @@ def handle_files():
             st.session_state.client.files.delete(file_id)
             add_message("user", f"파일 삭제: `{file_name}`")
             del st.session_state.upload_ids[upload_id]
+
+def list_messages():
+    messages = st.session_state.client.beta.threads.messages.list(
+        thread_id=st.session_state.thread.id
+    )
+    return messages
+
+def delete_messages():
+    messages = list_messages()
+    for message in messages.data:
+        deleted_message = st.session_state.client.beta.threads.messages.delete(
+            thread_id=st.session_state.thread.id,
+            message_id=message.id
+        )
+
+def create_message(role, content):
+    st.session_state.client.beta.threads.messages.create(
+        thread_id=st.session_state.thread.id,
+        role=role,
+        content=content
+    )
