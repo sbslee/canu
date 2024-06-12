@@ -221,8 +221,6 @@ def show_history_page():
     with col2:
         if option is not None and st.button("삭제하기"):
             os.remove(f"./users/{st.session_state.username}/{option}.pkl")
-            st.success("대화가 성공적으로 삭제되었습니다.")
-            time.sleep(3)
             st.rerun()
 
 def handle_files():
