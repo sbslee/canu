@@ -24,6 +24,8 @@ class Container():
                 for filename, content in self.code_interpreter_files.items():
                     if filename.endswith('.csv'):
                         mime = "text/csv"
+                    elif filename.endswith('.png'):
+                        mime = "image/png"
                     else:
                         mime = "text/plain"
                     st.download_button(
