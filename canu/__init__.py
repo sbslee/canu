@@ -33,6 +33,13 @@ class Container():
                         mime=mime
                     )
 
+    def get_content(self):
+        content = []
+        for block in self.blocks:
+            if block['type'] == 'text':
+                content.append({"type": "text", "text": block['content']})
+        return content
+
     def write_blocks(self, stream=False):
         if stream:
             with self.container:
@@ -124,11 +131,7 @@ def authenticate():
         st.session_state.authenticator = authenticator
 
 def add_message(role, content):
-    st.session_state.client.beta.threads.messages.create(
-        thread_id=st.session_state.thread.id,
-        role=role,
-        content=content
-    )
+    create_message(role, content)
     st.session_state.containers.append(
         Container(role, [{'type': 'text', 'content': content}])
     )
@@ -201,12 +204,17 @@ def show_history_page():
     options = [x.replace('.pkl', '') for x in files]
     option = st.selectbox("불러올 대화를 선택해주세요.", options)
     if option is not None and st.button("불러오기"):
+        delete_messages()
         st.session_state.containers = []
         with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
             data = pickle.load(f)
-            for container in data:
-                st.session_state.containers.append(Container(container[0], container[1]))
-        st.session_state.page = "chatbot"
+            for x in data:
+                role = x[0]
+                blocks = x[1]
+                container = Container(role, blocks)
+                st.session_state.containers.append(container)
+                create_message(role, container.get_content())
+        st.session_state.page = "chatbot"        
         st.rerun()
 
 def handle_files():
@@ -263,3 +271,24 @@ def handle_files():
             st.session_state.client.files.delete(file_id)
             add_message("user", f"파일 삭제: `{file_name}`")
             del st.session_state.upload_ids[upload_id]
+
+def list_messages():
+    messages = st.session_state.client.beta.threads.messages.list(
+        thread_id=st.session_state.thread.id
+    )
+    return messages
+
+def delete_messages():
+    messages = list_messages()
+    for message in messages.data:
+        deleted_message = st.session_state.client.beta.threads.messages.delete(
+            thread_id=st.session_state.thread.id,
+            message_id=message.id
+        )
+
+def create_message(role, content):
+    st.session_state.client.beta.threads.messages.create(
+        thread_id=st.session_state.thread.id,
+        role=role,
+        content=content
+    )
