@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.9.0 (in development)
+
 ## 0.8.0 (2024-06-12)
 * Add the `canu.list_messages` method.
 * Add the `canu.delete_messages` method.
