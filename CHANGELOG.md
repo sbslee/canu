@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.9.0 (in development)
+## 0.9.0 (2024-06-13)
 * Fix a bug where `streamlit.errors.DuplicateWidgetID` was raised by the download button.
 * Fix a bug where `openai.BadRequestError` was raised when an unsupported file was uploaded.
 
