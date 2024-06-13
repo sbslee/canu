@@ -27,13 +27,15 @@ class Container():
                     elif filename.endswith('.png'):
                         mime = "image/png"
                     else:
-                        mime = "text/plain"
+                        mime = "text/plain"        
                     st.download_button(
                         label=f"{filename}",
                         data=content,
                         file_name=filename,
-                        mime=mime
+                        mime=mime,
+                        key=f"download_button_{st.session_state.download_button_key}"
                     )
+                    st.session_state.download_button_key += 1
 
     def get_content(self):
         content = []

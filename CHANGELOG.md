@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.9.0 (in development)
+* Fix a bug where `streamlit.errors.DuplicateWidgetID` was raised by the download button.
 
 ## 0.8.0 (2024-06-12)
 * Add the `canu.list_messages` method.
