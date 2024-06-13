@@ -2,6 +2,7 @@
 
 ## 0.9.0 (in development)
 * Fix a bug where `streamlit.errors.DuplicateWidgetID` was raised by the download button.
+* Fix a bug where `openai.BadRequestError` was raised when an unsupported file was uploaded.
 
 ## 0.8.0 (2024-06-12)
 * Add the `canu.list_messages` method.

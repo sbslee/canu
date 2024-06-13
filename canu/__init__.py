@@ -264,6 +264,8 @@ def handle_files():
                     tools.append({"type": "file_search"})
                 if file_name.endswith(tuple(supported_files["code_interpreter"])):
                     tools.append({"type": "code_interpreter"})
+                if not tools:
+                    tools.append({"type": "code_interpreter"})
                 attachments = [{"file_id": file.id, "tools": tools}]
                 content=[{"type": "text", "text": f"파일 업로드: `{file_name}`"}]
                 st.session_state.client.beta.threads.messages.create(
