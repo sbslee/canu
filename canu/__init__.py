@@ -1,8 +1,9 @@
-import os, time, yaml, pickle, tempfile, base64
+import os, time, yaml, pickle, tempfile
 from pathlib import Path
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
+from PIL import Image
 
 class Container():
     def __init__(self, role, blocks):
@@ -12,7 +13,12 @@ class Container():
         self.code_interpreter_files = {}
 
     def _write_blocks(self):
-        with st.chat_message(self.role):
+        if "assistant_avatar" in st.session_state:
+            avatar = Image.open(st.session_state.assistant_avatar)
+        else:
+            avatar = None
+
+        with st.chat_message(self.role, avatar=avatar):
             for block in self.blocks:
                 if block['type'] == 'text':
                     st.write(block['content'], unsafe_allow_html=True)
