@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.10.0 (in development)
+* Add the `canu.delete_files` method.
 
 ## 0.9.0 (2024-06-13)
 * Fix a bug where `streamlit.errors.DuplicateWidgetID` was raised by the download button.
