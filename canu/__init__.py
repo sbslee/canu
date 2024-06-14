@@ -307,7 +307,7 @@ def create_message(role, content):
 
 def delete_files():
     """
-    Delete all files uploaded by the user from OpenAI.
+    Delete all files uploaded to OpenAI.
     """
     for upload_id, upload_data in st.session_state.upload_ids.items():
         st.session_state.client.files.delete(upload_data["file_id"])
