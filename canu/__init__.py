@@ -13,11 +13,9 @@ class Container():
         self.code_interpreter_files = {}
 
     def _write_blocks(self):
-        if "assistant_avatar" in st.session_state:
+        avatar = None
+        if self.role == "assistant" and "assistant_avatar" in st.session_state:
             avatar = Image.open(st.session_state.assistant_avatar)
-        else:
-            avatar = None
-
         with st.chat_message(self.role, avatar=avatar):
             for block in self.blocks:
                 if block['type'] == 'text':
