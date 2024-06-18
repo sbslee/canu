@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.11.0 (in development)
+* Add multi-language support.
 
 ## 0.10.0 (2024-06-15)
 * Add the `canu.delete_files` method.

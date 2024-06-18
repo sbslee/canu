@@ -155,23 +155,41 @@ def write_stream(event_handler=None):
         stream.until_done()
 
 def show_login_page():
-    st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name':'로그인', 'Username':'아이디', 'Password':'비밀번호', 'Login':'로그인'})
+    labels = {
+        'Form name': {'English': 'Login', 'Korean': '로그인'},
+        'Username': {'English': 'Username', 'Korean': '아이디'},
+        'Password': {'English': 'Password', 'Korean': '비밀번호'},
+        'Login': {'English': 'Login', 'Korean': '로그인'},
+        'Incorrect credential': {'English': 'The ID or password is incorrect.', 'Korean': '아이디 또는 비밀번호가 잘못되었습니다.'},
+    }
+    language = st.radio("NONE", ["Korean", "English"], label_visibility="hidden", horizontal=True)
+    st.session_state.language = language
+    st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name': labels['Form name'][st.session_state.language], 'Username': labels['Username'][st.session_state.language], 'Password': labels['Password'][st.session_state.language], 'Login': labels['Login'][st.session_state.language]})
     if st.session_state.authentication_status:
         st.session_state.page = "chatbot"
         st.rerun()
     elif st.session_state.authentication_status is False:
-        st.error("아이디 또는 비밀번호가 잘못되었습니다.")
+        st.error(labels['Incorrect credential'][st.session_state.language])
     elif st.session_state.authentication_status is None:
         pass
 
 def show_profile_page():
+    labels = {
+        'Form name': {'English': 'Reset password', 'Korean': '비밀번호 변경'},
+        'Current password': {'English': 'Current password', 'Korean': '현재 비밀번호'},
+        'New password': {'English': 'New password', 'Korean': '새로운 비밀번호'},
+        'Repeat password': {'English': 'Repeat password', 'Korean': '새로운 비밀번호 확인'},
+        'Reset': {'English': 'Reset', 'Korean': '변경'},
+        'Go back': {'English': 'Go back', 'Korean': '돌아가기'},
+        'Change success': {'English': 'Password has been successfully changed.', 'Korean': '비밀번호가 성공적으로 변경되었습니다.'},
+    }
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
-    if st.sidebar.button("돌아가기"):
+    if st.sidebar.button(labels['Go back'][st.session_state.language]):
         st.session_state.page = "chatbot"
         st.rerun()
-    if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name':'비밀번호 변경', 'Current password':'현재 비밀번호', 'New password':'새로운 비밀번호', 'Repeat password': '새로운 비밀번호 확인', 'Reset':'변경'}):
-        st.success("비밀번호가 성공적으로 변경되었습니다.")
+    if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name': labels['Form name'][st.session_state.language], 'Current password': labels['Current password'][st.session_state.language], 'New password': labels['New password'][st.session_state.language], 'Repeat password': labels['Repeat password'][st.session_state.language], 'Reset': labels['Reset'][st.session_state.language]}):
+        st.success(labels['Change success'][st.session_state.language])
         time.sleep(3)
         update_yaml_file()
         st.session_state.page = "chatbot"
@@ -179,41 +197,52 @@ def show_profile_page():
 
 def get_uploaded_files():
     uploaded_files = st.sidebar.file_uploader(
-        "파일 업로드",
+        "NONE",
         accept_multiple_files=True,
+        label_visibility="hidden",
         key=st.session_state.file_uploader_key
     )
     return uploaded_files
 
 def show_history_page():
+    labels = {
+        'Go back': {'English': 'Go back', 'Korean': '돌아가기'},
+        'Current conversation': {'English': 'Current conversation', 'Korean': '현재 대화'},
+        'Save conversation': {'English': 'Save conversation', 'Korean': '대화 저장'},
+        'Conversation name': {'English': 'Enter a name for the conversation to save.', 'Korean': '저장할 대화 이름을 입력하세요.'},
+        'Save': {'English': 'Save', 'Korean': '저장'},
+        'Past conversations': {'English': 'Past conversations', 'Korean': '과거 대화'},
+        'Select conversation': {'English': 'Select a conversation.', 'Korean': '대화를 선택해주세요.'},
+        'Load': {'English': 'Load', 'Korean': '불러오기'},
+        'Delete': {'English': 'Delete', 'Korean': '삭제하기'}
+    }
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
-    if st.sidebar.button("돌아가기"):
+    if st.sidebar.button(labels['Go back'][st.session_state.language]):
         st.session_state.page = "chatbot"
         st.rerun()
     if not os.path.isdir("./users"):
         os.mkdir("./users")
     if not os.path.isdir(f"./users/{st.session_state.username}"):
         os.mkdir(f"./users/{st.session_state.username}")
-    st.header("현재 대화")
-    with st.form("대화 저장", clear_on_submit=True):
-        file_name = st.text_input("저장할 대화 이름을 입력하세요.")
-        submitted = st.form_submit_button("저장")
+    st.header(labels['Current conversation'][st.session_state.language])
+    with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
+        file_name = st.text_input(labels['Conversation name'][st.session_state.language])
+        submitted = st.form_submit_button(labels['Save'][st.session_state.language])
         if submitted:
             data = []
             for container in st.session_state.containers:
                 data.append([container.role, container.blocks])
             with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
                 pickle.dump(data, f)
-    st.header("과거 대화")
+    st.header(labels['Past conversations'][st.session_state.language])
     files = os.listdir(f"./users/{st.session_state.username}")
     files = [x for x in files if x.endswith('.pkl')]
-    st.write(f"{len(files)}개의 대화가 저장되어 있습니다.")
     options = [x.replace('.pkl', '') for x in files]
-    option = st.selectbox("대화를 선택해주세요.", options)
+    option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
     col1, col2 = st.columns((1, 6))
     with col1:
-        if option is not None and st.button("불러오기"):
+        if option is not None and st.button(labels['Load'][st.session_state.language]):
             delete_messages()
             st.session_state.containers = []
             with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
@@ -227,7 +256,7 @@ def show_history_page():
             st.session_state.page = "chatbot"        
             st.rerun()
     with col2:
-        if option is not None and st.button("삭제하기"):
+        if option is not None and st.button(labels['Delete'][st.session_state.language]):
             os.remove(f"./users/{st.session_state.username}/{option}.pkl")
             st.rerun()
 
