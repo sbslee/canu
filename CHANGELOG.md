@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 0.11.0 (in development)
+## 0.11.0 (2024-06-19)
 * Add multi-language support.
 
 ## 0.10.0 (2024-06-15)
