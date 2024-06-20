@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.12.0 (2024-06-20)
+* Add the `canu.list_runs` method.
+* Add the `canu.is_thread_locked` method.
+* Fix a bug where `openai.BadRequestError` was raised when messages were added while a run is active.
+
 ## 0.11.0 (2024-06-19)
 * Add multi-language support.
 

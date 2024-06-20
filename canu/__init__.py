@@ -147,12 +147,13 @@ def add_message(role, content):
 def write_stream(event_handler=None):
     if event_handler is None:
         event_handler = EventHandler()
-    with st.session_state.client.beta.threads.runs.stream(
-        thread_id=st.session_state.thread.id,
-        assistant_id=st.session_state.assistant.id,
-        event_handler=event_handler,
-    ) as stream:
-        stream.until_done()
+    if not is_thread_locked():
+        with st.session_state.client.beta.threads.runs.stream(
+            thread_id=st.session_state.thread.id,
+            assistant_id=st.session_state.assistant.id,
+            event_handler=event_handler,
+        ) as stream:
+            stream.until_done()
 
 def show_login_page():
     labels = {
@@ -285,11 +286,7 @@ def handle_files():
                     {"type": "text", "text": f"파일 업로드: `{file_name}`"},
                     {"type": "image_file", "image_file": {"file_id": file.id}}
                 ]
-                st.session_state.client.beta.threads.messages.create(
-                    thread_id=st.session_state.thread.id,
-                    role="user",
-                    content=content,
-                )
+                create_message("user", content)
             else:
                 file = st.session_state.client.files.create(file=Path(file_path), purpose="assistants")
                 tools = []
@@ -301,12 +298,7 @@ def handle_files():
                     tools.append({"type": "code_interpreter"})
                 attachments = [{"file_id": file.id, "tools": tools}]
                 content=[{"type": "text", "text": f"파일 업로드: `{file_name}`"}]
-                st.session_state.client.beta.threads.messages.create(
-                    thread_id=st.session_state.thread.id,
-                    role="user",
-                    content=content,
-                    attachments=attachments,
-                )
+                create_message("user", content, attachments)
             st.session_state.upload_ids[upload_id] = {'file_id': file.id, 'file_name': file_name}
 
     for upload_id, upload_data in list(st.session_state.upload_ids.items()):
@@ -331,12 +323,17 @@ def delete_messages():
             message_id=message.id
         )
 
-def create_message(role, content):
-    st.session_state.client.beta.threads.messages.create(
-        thread_id=st.session_state.thread.id,
-        role=role,
-        content=content
-    )
+def create_message(role, content, attachments=None):
+    """
+    Create a message and add it to the thread.
+    """
+    if not is_thread_locked():
+        st.session_state.client.beta.threads.messages.create(
+            thread_id=st.session_state.thread.id,
+            role=role,
+            content=content,
+            attachments=attachments
+        )
 
 def delete_files():
     """
@@ -344,3 +341,19 @@ def delete_files():
     """
     for upload_id, upload_data in st.session_state.upload_ids.items():
         st.session_state.client.files.delete(upload_data["file_id"])
+
+def list_runs(limit=100):
+    """
+    Returns a list of runs belonging to the thread.
+    """
+    runs = st.session_state.client.beta.threads.runs.list(
+        thread_id=st.session_state.thread.id,
+        limit=limit
+    )
+    return runs
+
+def is_thread_locked():
+    """
+    Returns whether the thread is locked.
+    """
+    return len([x for x in list_runs().data if x.status in ["queued", "in_progress"]]) > 0
