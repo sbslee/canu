@@ -1,6 +1,7 @@
 # CHANGELOG
 
-## 0.13.0 (in development)
+## 0.13.0 (2024-06-27)
+* Add feature to hide quotation marks in File Search.
 
 ## 0.12.0 (2024-06-20)
 * Add the `canu.list_runs` method.

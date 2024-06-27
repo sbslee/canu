@@ -56,10 +56,11 @@ class Container():
             self._write_blocks()
 
 class EventHandler(openai.AssistantEventHandler):
-    def __init__(self, container=None):
+    def __init__(self, container=None, show_quotation_marks=True):
         super().__init__()
         self.container = container
         self.redundant = container is not None
+        self.show_quotation_marks = show_quotation_marks
 
     def on_text_delta(self, delta, snapshot):
         if self.container is None:
@@ -70,7 +71,10 @@ class EventHandler(openai.AssistantEventHandler):
             for annotation in delta.annotations:
                 if annotation.type == "file_citation":
                     file = st.session_state.client.files.retrieve(annotation.file_citation.file_id)
-                    delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{file.filename}">[❞]</a>""")
+                    if self.show_quotation_marks:
+                        delta.value = delta.value.replace(annotation.text, f"""<a href="#" title="{file.filename}">[❞]</a>""")
+                    else:
+                        delta.value = delta.value.replace(annotation.text, "")
                 elif annotation.type == "file_path":
                     file = st.session_state.client.files.retrieve(annotation.file_path.file_id)
                     content = st.session_state.client.files.content(file.id)
@@ -144,9 +148,9 @@ def add_message(role, content):
         Container(role, [{'type': 'text', 'content': content}])
     )
 
-def write_stream(event_handler=None):
+def write_stream(event_handler=None, show_quotation_marks=True):
     if event_handler is None:
-        event_handler = EventHandler()
+        event_handler = EventHandler(show_quotation_marks=show_quotation_marks)
     if not is_thread_locked():
         with st.session_state.client.beta.threads.runs.stream(
             thread_id=st.session_state.thread.id,
