@@ -161,13 +161,13 @@ def write_stream(event_handler=None, show_quotation_marks=True):
 
 def show_login_page():
     labels = {
-        'Form name': {'English': 'Login', 'Korean': '로그인'},
-        'Username': {'English': 'Username', 'Korean': '아이디'},
-        'Password': {'English': 'Password', 'Korean': '비밀번호'},
-        'Login': {'English': 'Login', 'Korean': '로그인'},
-        'Incorrect credential': {'English': 'The ID or password is incorrect.', 'Korean': '아이디 또는 비밀번호가 잘못되었습니다.'},
+        'Form name': {'English': 'Login', 'Korean': '로그인', 'Spanish': 'Inicio de sesión', 'Japanese': 'ログイン'},
+        'Username': {'English': 'Username', 'Korean': '아이디', 'Spanish': 'Nombre de usuario', 'Japanese': 'ユーザー名'},
+        'Password': {'English': 'Password', 'Korean': '비밀번호', 'Spanish': 'Contraseña', 'Japanese': 'パスワード'},
+        'Login': {'English': 'Login', 'Korean': '로그인', 'Spanish': 'Iniciar sesión', 'Japanese': 'ログイン'},
+        'Incorrect credential': {'English': 'The ID or password is incorrect.', 'Korean': '아이디 또는 비밀번호가 잘못되었습니다.', 'Spanish': 'El ID o la contraseña son incorrectos.', 'Japanese': 'IDまたはパスワードが間違っています.'},
     }
-    language = st.radio("NONE", ["Korean", "English"], label_visibility="hidden", horizontal=True)
+    language = st.radio("NONE", ["Korean", "English", "Spanish", "Japanese"], label_visibility="hidden", horizontal=True)
     st.session_state.language = language
     st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name': labels['Form name'][st.session_state.language], 'Username': labels['Username'][st.session_state.language], 'Password': labels['Password'][st.session_state.language], 'Login': labels['Login'][st.session_state.language]})
     if st.session_state.authentication_status:
@@ -180,13 +180,13 @@ def show_login_page():
 
 def show_profile_page():
     labels = {
-        'Form name': {'English': 'Reset password', 'Korean': '비밀번호 변경'},
-        'Current password': {'English': 'Current password', 'Korean': '현재 비밀번호'},
-        'New password': {'English': 'New password', 'Korean': '새로운 비밀번호'},
-        'Repeat password': {'English': 'Repeat password', 'Korean': '새로운 비밀번호 확인'},
-        'Reset': {'English': 'Reset', 'Korean': '변경'},
-        'Go back': {'English': 'Go back', 'Korean': '돌아가기'},
-        'Change success': {'English': 'Password has been successfully changed.', 'Korean': '비밀번호가 성공적으로 변경되었습니다.'},
+        'Form name': {'English': 'Reset password', 'Korean': '비밀번호 변경', 'Spanish': 'Restablecer contraseña', 'Japanese': 'パスワードをリセットする'},
+        'Current password': {'English': 'Current password', 'Korean': '현재 비밀번호', 'Spanish': 'Contraseña actual', 'Japanese': '現在のパスワード'},
+        'New password': {'English': 'New password', 'Korean': '새로운 비밀번호', 'Spanish': 'Nueva contraseña', 'Japanese': '新しいパスワード'},
+        'Repeat password': {'English': 'Repeat password', 'Korean': '새로운 비밀번호 확인', 'Spanish': 'Repetir contraseña', 'Japanese': 'パスワードを繰り返す'},
+        'Reset': {'English': 'Reset', 'Korean': '변경', 'Spanish': 'Restablecer', 'Japanese': 'リセット'},
+        'Go back': {'English': 'Go back', 'Korean': '돌아가기', 'Spanish': 'Regresar', 'Japanese': '戻る'},
+        'Change success': {'English': 'Password has been successfully changed.', 'Korean': '비밀번호가 성공적으로 변경되었습니다.', 'Spanish': 'La contraseña se ha cambiado correctamente.', 'Japanese': 'パスワードが正常に変更されました.'},
     }
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
@@ -211,15 +211,15 @@ def get_uploaded_files():
 
 def show_history_page():
     labels = {
-        'Go back': {'English': 'Go back', 'Korean': '돌아가기'},
-        'Current conversation': {'English': 'Current conversation', 'Korean': '현재 대화'},
-        'Save conversation': {'English': 'Save conversation', 'Korean': '대화 저장'},
-        'Conversation name': {'English': 'Enter a name for the conversation to save.', 'Korean': '저장할 대화 이름을 입력하세요.'},
-        'Save': {'English': 'Save', 'Korean': '저장'},
-        'Past conversations': {'English': 'Past conversations', 'Korean': '과거 대화'},
-        'Select conversation': {'English': 'Select a conversation.', 'Korean': '대화를 선택해주세요.'},
-        'Load': {'English': 'Load', 'Korean': '불러오기'},
-        'Delete': {'English': 'Delete', 'Korean': '삭제하기'}
+        'Go back': {'English': 'Go back', 'Korean': '돌아가기', 'Spanish': 'Regresar', 'Japanese': '戻る'},
+        'Current conversation': {'English': 'Current conversation', 'Korean': '현재 대화', 'Spanish': 'Conversación actual', 'Japanese': '現在の会話'},
+        'Save conversation': {'English': 'Save conversation', 'Korean': '대화 저장', 'Spanish': 'Guardar conversación', 'Japanese': '会話を保存する'},
+        'Conversation name': {'English': 'Enter a name for the conversation to save.', 'Korean': '저장할 대화 이름을 입력하세요.', 'Spanish': 'Ingrese un nombre para la conversación a guardar.', 'Japanese': '保存する会話の名前を入力してください。'},
+        'Save': {'English': 'Save', 'Korean': '저장', 'Spanish': 'Guardar', 'Japanese': '保存'},
+        'Past conversations': {'English': 'Past conversations', 'Korean': '과거 대화', 'Spanish': 'Conversaciones pasadas', 'Japanese': '過去の会話'},
+        'Select conversation': {'English': 'Select a conversation.', 'Korean': '대화를 선택해주세요.', 'Spanish': 'Seleccione una conversación.', 'Japanese': '会話を選択してください。'},
+        'Load': {'English': 'Load', 'Korean': '불러오기', 'Spanish': 'Cargar', 'Japanese': 'ロード'},
+        'Delete': {'English': 'Delete', 'Korean': '삭제하기', 'Spanish': 'Eliminar', 'Japanese': '削除'},
     }
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
