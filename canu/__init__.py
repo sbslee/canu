@@ -167,7 +167,9 @@ def show_login_page():
         'Login': {'English': 'Login', 'Korean': '로그인', 'Spanish': 'Iniciar sesión', 'Japanese': 'ログイン'},
         'Incorrect credential': {'English': 'The ID or password is incorrect.', 'Korean': '아이디 또는 비밀번호가 잘못되었습니다.', 'Spanish': 'El ID o la contraseña son incorrectos.', 'Japanese': 'IDまたはパスワードが間違っています.'},
     }
-    language = st.radio("NONE", ["Korean", "English", "Spanish", "Japanese"], label_visibility="hidden", horizontal=True)
+    mapping = {'한국어': 'Korean', 'English': 'English', 'Español': 'Spanish', '日本語': 'Japanese'}
+    language = st.selectbox("NONE", ["한국어", "English", "Español", "日本語"], label_visibility="collapsed")
+    language = mapping[language]
     st.session_state.language = language
     st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name': labels['Form name'][st.session_state.language], 'Username': labels['Username'][st.session_state.language], 'Password': labels['Password'][st.session_state.language], 'Login': labels['Login'][st.session_state.language]})
     if st.session_state.authentication_status:

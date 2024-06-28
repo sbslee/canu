@@ -1,6 +1,7 @@
 # CHANGELOG
 
 ## 0.14.0 (in development)
+* Add Spanish and Japanese language support.
 
 ## 0.13.0 (2024-06-27)
 * Add feature to hide quotation marks in File Search.
