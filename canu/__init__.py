@@ -3,7 +3,9 @@ from pathlib import Path
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
+import mysql.connector
 from PIL import Image
+import boto3
 
 class Container():
     def __init__(self, role, blocks):
@@ -124,22 +126,56 @@ class EventHandler(openai.AssistantEventHandler):
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
 
-def update_yaml_file():
-    with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
-        yaml.dump(st.session_state.config, f, allow_unicode=True)
-
 def authenticate():
-    if "page" not in st.session_state:
-        st.session_state.page = "login"
-    if "authenticator" not in st.session_state:
+    """
+    Create an authenticator object based on the authentication method 
+    specified in the config.yaml file. Currently, the supported methods are 
+    'YAML' and 'MYSQL'.
+    """
+    def from_yaml():
         with open("./auth.yaml") as f:
             config = yaml.load(f, Loader=yaml.loader.SafeLoader)
         authenticator = stauth.Authenticate(
             config['credentials'],
-            config['cookie']['name'],
-            config['cookie']['key'],
+            config['cookie']['cookie_name'],
+            config['cookie']['cookie_key'],
+            config['cookie']['cookie_expiry_days'],
         )
-        st.session_state.config = config
+        return authenticator
+    
+    def from_mysql():
+        try:
+            connection = mysql.connector.connect(
+                user=st.session_state.config['authentication']['user'],
+                password=st.session_state.config['authentication']['password'],
+                host=st.session_state.config['authentication']['host'],
+                database=st.session_state.config['authentication']['database']
+            )
+            if connection.is_connected():
+                cursor = connection.cursor(dictionary=True)
+                cursor.execute(f"SELECT username, name, password FROM {st.session_state.config['authentication']['table']}")
+                result = cursor.fetchall()
+                credentials = {'usernames': {row['username']: {'name': row['name'], 'password': row['password']} for row in result}}
+                cursor.close()
+        except mysql.connector.Error as e:
+            st.error(f"Error connecting to MySQL database: {e}")
+        finally:
+            if connection.is_connected():
+                connection.close()
+        authenticator = stauth.Authenticate(credentials, '', '', 0)
+        return authenticator
+
+    if "page" not in st.session_state:
+        st.session_state.page = "login"
+
+    if "authenticator" not in st.session_state:
+        method = st.session_state.config['authentication']['method']
+        if method == "YAML":
+            authenticator = from_yaml()
+        elif method == "MYSQL":
+            authenticator = from_mysql()
+        else:
+            raise ValueError(f"Invalid authentication method: {method}")
         st.session_state.authenticator = authenticator
 
 def add_message(role, content):
@@ -161,13 +197,15 @@ def write_stream(event_handler=None, show_quotation_marks=True):
 
 def show_login_page():
     labels = {
-        'Form name': {'English': 'Login', 'Korean': '로그인'},
-        'Username': {'English': 'Username', 'Korean': '아이디'},
-        'Password': {'English': 'Password', 'Korean': '비밀번호'},
-        'Login': {'English': 'Login', 'Korean': '로그인'},
-        'Incorrect credential': {'English': 'The ID or password is incorrect.', 'Korean': '아이디 또는 비밀번호가 잘못되었습니다.'},
+        'Form name': {'English': 'Login', 'Korean': '로그인', 'Spanish': 'Inicio de sesión', 'Japanese': 'ログイン'},
+        'Username': {'English': 'Username', 'Korean': '아이디', 'Spanish': 'Nombre de usuario', 'Japanese': 'ユーザー名'},
+        'Password': {'English': 'Password', 'Korean': '비밀번호', 'Spanish': 'Contraseña', 'Japanese': 'パスワード'},
+        'Login': {'English': 'Login', 'Korean': '로그인', 'Spanish': 'Iniciar sesión', 'Japanese': 'ログイン'},
+        'Incorrect credential': {'English': 'The ID or password is incorrect.', 'Korean': '아이디 또는 비밀번호가 잘못되었습니다.', 'Spanish': 'El ID o la contraseña son incorrectos.', 'Japanese': 'IDまたはパスワードが間違っています.'},
     }
-    language = st.radio("NONE", ["Korean", "English"], label_visibility="hidden", horizontal=True)
+    mapping = {'한국어': 'Korean', 'English': 'English', 'Español': 'Spanish', '日本語': 'Japanese'}
+    language = st.selectbox("NONE", ["한국어", "English", "Español", "日本語"], label_visibility="collapsed")
+    language = mapping[language]
     st.session_state.language = language
     st.session_state.name, st.session_state.authentication_status, st.session_state.username = st.session_state.authenticator.login(location="main", fields={'Form name': labels['Form name'][st.session_state.language], 'Username': labels['Username'][st.session_state.language], 'Password': labels['Password'][st.session_state.language], 'Login': labels['Login'][st.session_state.language]})
     if st.session_state.authentication_status:
@@ -179,14 +217,51 @@ def show_login_page():
         pass
 
 def show_profile_page():
+    """
+    Show the profile page.
+    """
+    def update_yaml():
+        with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
+            data = {
+                'cookie': {
+                    'cookie_name': st.session_state.authenticator.cookie_handler.cookie_name,
+                    'cookie_key': st.session_state.authenticator.cookie_handler.cookie_key,
+                    'cookie_expiry_days': st.session_state.authenticator.cookie_handler.cookie_expiry_days,
+                },
+                'credentials': st.session_state.authenticator.authentication_handler.credentials
+            }
+            
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    def update_mysql():
+        credentials = st.session_state.authenticator.authentication_handler.credentials
+        password = credentials['usernames'][st.session_state.username]['password']
+        try:
+            connection = mysql.connector.connect(
+                user=st.session_state.config['authentication']['user'],
+                password=st.session_state.config['authentication']['password'],
+                host=st.session_state.config['authentication']['host'],
+                database=st.session_state.config['authentication']['database']
+            )
+            if connection.is_connected():
+                cursor = connection.cursor()
+                cursor.execute(f"UPDATE {st.session_state.config['authentication']['table']} SET password = %s WHERE username = %s", (password, st.session_state.username))
+                connection.commit()
+                cursor.close()
+        except mysql.connector.Error as e:
+            st.error(f"Error connecting to MySQL database: {e}")
+        finally:
+            if connection.is_connected():
+                connection.close()
+
     labels = {
-        'Form name': {'English': 'Reset password', 'Korean': '비밀번호 변경'},
-        'Current password': {'English': 'Current password', 'Korean': '현재 비밀번호'},
-        'New password': {'English': 'New password', 'Korean': '새로운 비밀번호'},
-        'Repeat password': {'English': 'Repeat password', 'Korean': '새로운 비밀번호 확인'},
-        'Reset': {'English': 'Reset', 'Korean': '변경'},
-        'Go back': {'English': 'Go back', 'Korean': '돌아가기'},
-        'Change success': {'English': 'Password has been successfully changed.', 'Korean': '비밀번호가 성공적으로 변경되었습니다.'},
+        'Form name': {'English': 'Reset password', 'Korean': '비밀번호 변경', 'Spanish': 'Restablecer contraseña', 'Japanese': 'パスワードをリセットする'},
+        'Current password': {'English': 'Current password', 'Korean': '현재 비밀번호', 'Spanish': 'Contraseña actual', 'Japanese': '現在のパスワード'},
+        'New password': {'English': 'New password', 'Korean': '새로운 비밀번호', 'Spanish': 'Nueva contraseña', 'Japanese': '新しいパスワード'},
+        'Repeat password': {'English': 'Repeat password', 'Korean': '새로운 비밀번호 확인', 'Spanish': 'Repetir contraseña', 'Japanese': 'パスワードを繰り返す'},
+        'Reset': {'English': 'Reset', 'Korean': '변경', 'Spanish': 'Restablecer', 'Japanese': 'リセット'},
+        'Go back': {'English': 'Go back', 'Korean': '돌아가기', 'Spanish': 'Regresar', 'Japanese': '戻る'},
+        'Change success': {'English': 'Password has been successfully changed.', 'Korean': '비밀번호가 성공적으로 변경되었습니다.', 'Spanish': 'La contraseña se ha cambiado correctamente.', 'Japanese': 'パスワードが正常に変更されました.'},
     }
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
@@ -196,7 +271,11 @@ def show_profile_page():
     if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name': labels['Form name'][st.session_state.language], 'Current password': labels['Current password'][st.session_state.language], 'New password': labels['New password'][st.session_state.language], 'Repeat password': labels['Repeat password'][st.session_state.language], 'Reset': labels['Reset'][st.session_state.language]}):
         st.success(labels['Change success'][st.session_state.language])
         time.sleep(3)
-        update_yaml_file()
+        method = st.session_state.config['authentication']['method']
+        if method == "YAML":
+            update_yaml()
+        elif method == "MYSQL":
+            update_mysql()
         st.session_state.page = "chatbot"
         st.rerun()
 
@@ -210,60 +289,132 @@ def get_uploaded_files():
     return uploaded_files
 
 def show_history_page():
+    """
+    Manage the conversation history based on the storage method specified in 
+    the config.yaml file. Currently, the supported methods are 'LOCAL' and 
+    'S3'.
+    """
+    def from_local():
+        if not os.path.isdir("./users"):
+            os.mkdir("./users")
+        if not os.path.isdir(f"./users/{st.session_state.username}"):
+            os.mkdir(f"./users/{st.session_state.username}")
+        st.header(labels['Current conversation'][st.session_state.language])
+        with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
+            file_name = st.text_input(labels['Conversation name'][st.session_state.language])
+            submitted = st.form_submit_button(labels['Save'][st.session_state.language])
+            if submitted:
+                data = []
+                for container in st.session_state.containers:
+                    data.append([container.role, container.blocks])
+                with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
+                    pickle.dump(data, f)
+        st.header(labels['Past conversations'][st.session_state.language])
+        files = os.listdir(f"./users/{st.session_state.username}")
+        files = [x for x in files if x.endswith('.pkl')]
+        options = [x.replace('.pkl', '') for x in files]
+        option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
+        col1, col2 = st.columns((1, 6))
+        with col1:
+            if option is not None and st.button(labels['Load'][st.session_state.language]):
+                delete_messages()
+                st.session_state.containers = []
+                with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
+                    data = pickle.load(f)
+                    for x in data:
+                        role = x[0]
+                        blocks = x[1]
+                        container = Container(role, blocks)
+                        st.session_state.containers.append(container)
+                        create_message(role, container.get_content())
+                st.session_state.page = "chatbot"        
+                st.rerun()
+        with col2:
+            if option is not None and st.button(labels['Delete'][st.session_state.language]):
+                os.remove(f"./users/{st.session_state.username}/{option}.pkl")
+                st.rerun()
+
+    def from_s3():
+        bucket = st.session_state.config['history']['bucket']
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=st.session_state.config['history']['aws_access_key_id'],
+            aws_secret_access_key=st.session_state.config['history']['aws_secret_access_key']
+        )
+        s3_folder = f"{st.session_state.config['history']['users_dir']}/{st.session_state.username}"
+        folder_exists = s3.list_objects(Bucket=bucket, Prefix=s3_folder)
+        if 'Contents' not in folder_exists:
+            s3.put_object(Bucket=bucket, Key=s3_folder)
+
+        st.header(labels['Current conversation'][st.session_state.language])
+        with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
+            file_name = st.text_input(labels['Conversation name'][st.session_state.language])
+            submitted = st.form_submit_button(labels['Save'][st.session_state.language])
+            if submitted:
+                data = []
+                for container in st.session_state.containers:
+                    data.append([container.role, container.blocks])
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file_name = temp_file.name
+                    with open(temp_file_name, 'wb') as f:
+                        pickle.dump(data, f)
+                    s3.upload_file(temp_file_name, bucket, f"{s3_folder}/{file_name}.pkl")
+                    os.remove(temp_file_name)
+
+        st.header(labels['Past conversations'][st.session_state.language])
+        file_list = []
+        folder_exists = s3.list_objects(Bucket=bucket, Prefix=s3_folder)
+        if 'Contents' in folder_exists:
+            for obj in folder_exists['Contents']:
+                file_list.append(os.path.basename(obj['Key']))
+        files = [x for x in file_list if x.endswith('.pkl')]
+        options = [x.replace('.pkl', '') for x in files]
+        option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
+        col1, col2 = st.columns((1, 6))
+        with col1:
+            if option is not None and st.button(labels['Load'][st.session_state.language]):
+                delete_messages()
+                st.session_state.containers = []
+                with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+                    temp_file_name = temp_file.name
+                    s3.download_file(bucket, f"{s3_folder}/{option}.pkl", temp_file_name)
+                    with open(temp_file_name, 'rb') as f:
+                        data = pickle.load(f)
+                        for x in data:
+                            role = x[0]
+                            blocks = x[1]
+                            container = Container(role, blocks)
+                            st.session_state.containers.append(container)
+                            create_message(role, container.get_content())
+                st.session_state.page = "chatbot"
+                st.rerun()
+        with col2:
+            if option is not None and st.button(labels['Delete'][st.session_state.language]):
+                s3.delete_object(Bucket=bucket, Key=f"{s3_folder}/{option}.pkl")
+                st.rerun()
+
     labels = {
-        'Go back': {'English': 'Go back', 'Korean': '돌아가기'},
-        'Current conversation': {'English': 'Current conversation', 'Korean': '현재 대화'},
-        'Save conversation': {'English': 'Save conversation', 'Korean': '대화 저장'},
-        'Conversation name': {'English': 'Enter a name for the conversation to save.', 'Korean': '저장할 대화 이름을 입력하세요.'},
-        'Save': {'English': 'Save', 'Korean': '저장'},
-        'Past conversations': {'English': 'Past conversations', 'Korean': '과거 대화'},
-        'Select conversation': {'English': 'Select a conversation.', 'Korean': '대화를 선택해주세요.'},
-        'Load': {'English': 'Load', 'Korean': '불러오기'},
-        'Delete': {'English': 'Delete', 'Korean': '삭제하기'}
+        'Go back': {'English': 'Go back', 'Korean': '돌아가기', 'Spanish': 'Regresar', 'Japanese': '戻る'},
+        'Current conversation': {'English': 'Current conversation', 'Korean': '현재 대화', 'Spanish': 'Conversación actual', 'Japanese': '現在の会話'},
+        'Save conversation': {'English': 'Save conversation', 'Korean': '대화 저장', 'Spanish': 'Guardar conversación', 'Japanese': '会話を保存する'},
+        'Conversation name': {'English': 'Enter a name for the conversation to save.', 'Korean': '저장할 대화 이름을 입력하세요.', 'Spanish': 'Ingrese un nombre para la conversación a guardar.', 'Japanese': '保存する会話の名前を入力してください。'},
+        'Save': {'English': 'Save', 'Korean': '저장', 'Spanish': 'Guardar', 'Japanese': '保存'},
+        'Past conversations': {'English': 'Past conversations', 'Korean': '과거 대화', 'Spanish': 'Conversaciones pasadas', 'Japanese': '過去の会話'},
+        'Select conversation': {'English': 'Select a conversation.', 'Korean': '대화를 선택해주세요.', 'Spanish': 'Seleccione una conversación.', 'Japanese': '会話を選択してください。'},
+        'Load': {'English': 'Load', 'Korean': '불러오기', 'Spanish': 'Cargar', 'Japanese': 'ロード'},
+        'Delete': {'English': 'Delete', 'Korean': '삭제하기', 'Spanish': 'Eliminar', 'Japanese': '削除'},
     }
     if "file_uploader_key" in st.session_state:
         uploaded_files = get_uploaded_files()
     if st.sidebar.button(labels['Go back'][st.session_state.language]):
         st.session_state.page = "chatbot"
         st.rerun()
-    if not os.path.isdir("./users"):
-        os.mkdir("./users")
-    if not os.path.isdir(f"./users/{st.session_state.username}"):
-        os.mkdir(f"./users/{st.session_state.username}")
-    st.header(labels['Current conversation'][st.session_state.language])
-    with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
-        file_name = st.text_input(labels['Conversation name'][st.session_state.language])
-        submitted = st.form_submit_button(labels['Save'][st.session_state.language])
-        if submitted:
-            data = []
-            for container in st.session_state.containers:
-                data.append([container.role, container.blocks])
-            with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
-                pickle.dump(data, f)
-    st.header(labels['Past conversations'][st.session_state.language])
-    files = os.listdir(f"./users/{st.session_state.username}")
-    files = [x for x in files if x.endswith('.pkl')]
-    options = [x.replace('.pkl', '') for x in files]
-    option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
-    col1, col2 = st.columns((1, 6))
-    with col1:
-        if option is not None and st.button(labels['Load'][st.session_state.language]):
-            delete_messages()
-            st.session_state.containers = []
-            with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
-                data = pickle.load(f)
-                for x in data:
-                    role = x[0]
-                    blocks = x[1]
-                    container = Container(role, blocks)
-                    st.session_state.containers.append(container)
-                    create_message(role, container.get_content())
-            st.session_state.page = "chatbot"        
-            st.rerun()
-    with col2:
-        if option is not None and st.button(labels['Delete'][st.session_state.language]):
-            os.remove(f"./users/{st.session_state.username}/{option}.pkl")
-            st.rerun()
+    if st.session_state.config['history']['method'] == "LOCAL":
+        from_local()
+    elif st.session_state.config['history']['method'] == "S3":
+        from_s3()
+    else:
+        raise ValueError(f"Invalid history storage method: {st.session_state.config['history']['method']}")
 
 def handle_files():
     supported_files = {
@@ -361,3 +512,11 @@ def is_thread_locked():
     Returns whether the thread is locked.
     """
     return len([x for x in list_runs().data if x.status in ["queued", "in_progress"]]) > 0
+
+def get_config():
+    """
+    Get the configuration from the config.yaml file.
+    """
+    if "config" not in st.session_state:
+        with open("./config.yaml") as f:
+            st.session_state.config = yaml.load(f, Loader=yaml.loader.SafeLoader)

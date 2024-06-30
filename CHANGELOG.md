@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.14.0 (2024-06-30)
+* Add Spanish and Japanese language support.
+* Add MySQL authentication support.
+* Add S3 history support.
+
 ## 0.13.0 (2024-06-27)
 * Add feature to hide quotation marks in File Search.
 
