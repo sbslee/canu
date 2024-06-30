@@ -5,6 +5,7 @@ import streamlit_authenticator as stauth
 import openai
 import mysql.connector
 from PIL import Image
+import boto3
 
 class Container():
     def __init__(self, role, blocks):
@@ -288,6 +289,110 @@ def get_uploaded_files():
     return uploaded_files
 
 def show_history_page():
+    """
+    Manage the conversation history based on the storage method specified in 
+    the config.yaml file. Currently, the supported methods are 'LOCAL' and 
+    'S3'.
+    """
+    def from_local():
+        if not os.path.isdir("./users"):
+            os.mkdir("./users")
+        if not os.path.isdir(f"./users/{st.session_state.username}"):
+            os.mkdir(f"./users/{st.session_state.username}")
+        st.header(labels['Current conversation'][st.session_state.language])
+        with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
+            file_name = st.text_input(labels['Conversation name'][st.session_state.language])
+            submitted = st.form_submit_button(labels['Save'][st.session_state.language])
+            if submitted:
+                data = []
+                for container in st.session_state.containers:
+                    data.append([container.role, container.blocks])
+                with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
+                    pickle.dump(data, f)
+        st.header(labels['Past conversations'][st.session_state.language])
+        files = os.listdir(f"./users/{st.session_state.username}")
+        files = [x for x in files if x.endswith('.pkl')]
+        options = [x.replace('.pkl', '') for x in files]
+        option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
+        col1, col2 = st.columns((1, 6))
+        with col1:
+            if option is not None and st.button(labels['Load'][st.session_state.language]):
+                delete_messages()
+                st.session_state.containers = []
+                with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
+                    data = pickle.load(f)
+                    for x in data:
+                        role = x[0]
+                        blocks = x[1]
+                        container = Container(role, blocks)
+                        st.session_state.containers.append(container)
+                        create_message(role, container.get_content())
+                st.session_state.page = "chatbot"        
+                st.rerun()
+        with col2:
+            if option is not None and st.button(labels['Delete'][st.session_state.language]):
+                os.remove(f"./users/{st.session_state.username}/{option}.pkl")
+                st.rerun()
+
+    def from_s3():
+        bucket = st.session_state.config['history']['bucket']
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=st.session_state.config['history']['aws_access_key_id'],
+            aws_secret_access_key=st.session_state.config['history']['aws_secret_access_key']
+        )
+        s3_folder = f"{st.session_state.config['history']['users_dir']}/{st.session_state.username}"
+        folder_exists = s3.list_objects(Bucket=bucket, Prefix=s3_folder)
+        if 'Contents' not in folder_exists:
+            s3.put_object(Bucket=bucket, Key=s3_folder)
+
+        st.header(labels['Current conversation'][st.session_state.language])
+        with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
+            file_name = st.text_input(labels['Conversation name'][st.session_state.language])
+            submitted = st.form_submit_button(labels['Save'][st.session_state.language])
+            if submitted:
+                data = []
+                for container in st.session_state.containers:
+                    data.append([container.role, container.blocks])
+                with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                    temp_file_name = temp_file.name
+                    with open(temp_file_name, 'wb') as f:
+                        pickle.dump(data, f)
+                    s3.upload_file(temp_file_name, bucket, f"{s3_folder}/{file_name}.pkl")
+                    os.remove(temp_file_name)
+
+        st.header(labels['Past conversations'][st.session_state.language])
+        file_list = []
+        folder_exists = s3.list_objects(Bucket=bucket, Prefix=s3_folder)
+        if 'Contents' in folder_exists:
+            for obj in folder_exists['Contents']:
+                file_list.append(os.path.basename(obj['Key']))
+        files = [x for x in file_list if x.endswith('.pkl')]
+        options = [x.replace('.pkl', '') for x in files]
+        option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
+        col1, col2 = st.columns((1, 6))
+        with col1:
+            if option is not None and st.button(labels['Load'][st.session_state.language]):
+                delete_messages()
+                st.session_state.containers = []
+                with tempfile.NamedTemporaryFile(delete=True) as temp_file:
+                    temp_file_name = temp_file.name
+                    s3.download_file(bucket, f"{s3_folder}/{option}.pkl", temp_file_name)
+                    with open(temp_file_name, 'rb') as f:
+                        data = pickle.load(f)
+                        for x in data:
+                            role = x[0]
+                            blocks = x[1]
+                            container = Container(role, blocks)
+                            st.session_state.containers.append(container)
+                            create_message(role, container.get_content())
+                st.session_state.page = "chatbot"
+                st.rerun()
+        with col2:
+            if option is not None and st.button(labels['Delete'][st.session_state.language]):
+                s3.delete_object(Bucket=bucket, Key=f"{s3_folder}/{option}.pkl")
+                st.rerun()
+
     labels = {
         'Go back': {'English': 'Go back', 'Korean': '돌아가기', 'Spanish': 'Regresar', 'Japanese': '戻る'},
         'Current conversation': {'English': 'Current conversation', 'Korean': '현재 대화', 'Spanish': 'Conversación actual', 'Japanese': '現在の会話'},
@@ -304,44 +409,12 @@ def show_history_page():
     if st.sidebar.button(labels['Go back'][st.session_state.language]):
         st.session_state.page = "chatbot"
         st.rerun()
-    if not os.path.isdir("./users"):
-        os.mkdir("./users")
-    if not os.path.isdir(f"./users/{st.session_state.username}"):
-        os.mkdir(f"./users/{st.session_state.username}")
-    st.header(labels['Current conversation'][st.session_state.language])
-    with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
-        file_name = st.text_input(labels['Conversation name'][st.session_state.language])
-        submitted = st.form_submit_button(labels['Save'][st.session_state.language])
-        if submitted:
-            data = []
-            for container in st.session_state.containers:
-                data.append([container.role, container.blocks])
-            with open(f"./users/{st.session_state.username}/{file_name}.pkl", 'wb') as f:
-                pickle.dump(data, f)
-    st.header(labels['Past conversations'][st.session_state.language])
-    files = os.listdir(f"./users/{st.session_state.username}")
-    files = [x for x in files if x.endswith('.pkl')]
-    options = [x.replace('.pkl', '') for x in files]
-    option = st.selectbox(labels['Select conversation'][st.session_state.language], options)
-    col1, col2 = st.columns((1, 6))
-    with col1:
-        if option is not None and st.button(labels['Load'][st.session_state.language]):
-            delete_messages()
-            st.session_state.containers = []
-            with open(f"./users/{st.session_state.username}/{option}.pkl", 'rb') as f:
-                data = pickle.load(f)
-                for x in data:
-                    role = x[0]
-                    blocks = x[1]
-                    container = Container(role, blocks)
-                    st.session_state.containers.append(container)
-                    create_message(role, container.get_content())
-            st.session_state.page = "chatbot"        
-            st.rerun()
-    with col2:
-        if option is not None and st.button(labels['Delete'][st.session_state.language]):
-            os.remove(f"./users/{st.session_state.username}/{option}.pkl")
-            st.rerun()
+    if st.session_state.config['history']['method'] == "LOCAL":
+        from_local()
+    elif st.session_state.config['history']['method'] == "S3":
+        from_s3()
+    else:
+        raise ValueError(f"Invalid history storage method: {st.session_state.config['history']['method']}")
 
 def handle_files():
     supported_files = {
