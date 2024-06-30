@@ -138,9 +138,11 @@ def update_yaml_file():
         yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
 def authenticate():
-    if "page" not in st.session_state:
-        st.session_state.page = "login"
-    if "authenticator" not in st.session_state:
+    """
+    Create an authenticator object based on the authentication method 
+    specified in the config.yaml file.
+    """
+    def from_yaml():
         with open("./auth.yaml") as f:
             config = yaml.load(f, Loader=yaml.loader.SafeLoader)
         authenticator = stauth.Authenticate(
@@ -149,6 +151,17 @@ def authenticate():
             config['cookie']['cookie_key'],
             config['cookie']['cookie_expiry_days'],
         )
+        return authenticator
+    
+    if "page" not in st.session_state:
+        st.session_state.page = "login"
+
+    if "authenticator" not in st.session_state:
+        method = st.session_state.config['authentication']['method']
+        if method == "YAML":
+            authenticator = from_yaml()
+        else:
+            raise ValueError(f"Invalid authentication method: {method}")
         st.session_state.authenticator = authenticator
 
 def add_message(role, content):
@@ -372,3 +385,11 @@ def is_thread_locked():
     Returns whether the thread is locked.
     """
     return len([x for x in list_runs().data if x.status in ["queued", "in_progress"]]) > 0
+
+def get_config():
+    """
+    Get the configuration from the config.yaml file.
+    """
+    if "config" not in st.session_state:
+        with open("./config.yaml") as f:
+            st.session_state.config = yaml.load(f, Loader=yaml.loader.SafeLoader)
