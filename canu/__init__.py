@@ -126,7 +126,16 @@ class EventHandler(openai.AssistantEventHandler):
 
 def update_yaml_file():
     with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
-        yaml.dump(st.session_state.config, f, allow_unicode=True)
+        data = {
+            'cookie': {
+                'cookie_name': st.session_state.authenticator.cookie_handler.cookie_name,
+                'cookie_key': st.session_state.authenticator.cookie_handler.cookie_key,
+                'cookie_expiry_days': st.session_state.authenticator.cookie_handler.cookie_expiry_days,
+            },
+            'credentials': st.session_state.authenticator.authentication_handler.credentials
+        }
+        
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
 def authenticate():
     if "page" not in st.session_state:
@@ -136,10 +145,10 @@ def authenticate():
             config = yaml.load(f, Loader=yaml.loader.SafeLoader)
         authenticator = stauth.Authenticate(
             config['credentials'],
-            config['cookie']['name'],
-            config['cookie']['key'],
+            config['cookie']['cookie_name'],
+            config['cookie']['cookie_key'],
+            config['cookie']['cookie_expiry_days'],
         )
-        st.session_state.config = config
         st.session_state.authenticator = authenticator
 
 def add_message(role, content):
