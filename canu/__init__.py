@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 import streamlit_authenticator as stauth
 import openai
+import mysql.connector
 from PIL import Image
 
 class Container():
@@ -124,23 +125,11 @@ class EventHandler(openai.AssistantEventHandler):
             run_id = event.data.id
             self.handle_requires_action(event.data, run_id)
 
-def update_yaml_file():
-    with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
-        data = {
-            'cookie': {
-                'cookie_name': st.session_state.authenticator.cookie_handler.cookie_name,
-                'cookie_key': st.session_state.authenticator.cookie_handler.cookie_key,
-                'cookie_expiry_days': st.session_state.authenticator.cookie_handler.cookie_expiry_days,
-            },
-            'credentials': st.session_state.authenticator.authentication_handler.credentials
-        }
-        
-        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-
 def authenticate():
     """
     Create an authenticator object based on the authentication method 
-    specified in the config.yaml file.
+    specified in the config.yaml file. Currently, the supported methods are 
+    'YAML' and 'MYSQL'.
     """
     def from_yaml():
         with open("./auth.yaml") as f:
@@ -153,6 +142,28 @@ def authenticate():
         )
         return authenticator
     
+    def from_mysql():
+        try:
+            connection = mysql.connector.connect(
+                user=st.session_state.config['authentication']['user'],
+                password=st.session_state.config['authentication']['password'],
+                host=st.session_state.config['authentication']['host'],
+                database=st.session_state.config['authentication']['database']
+            )
+            if connection.is_connected():
+                cursor = connection.cursor(dictionary=True)
+                cursor.execute(f"SELECT username, name, password FROM {st.session_state.config['authentication']['table']}")
+                result = cursor.fetchall()
+                credentials = {'usernames': {row['username']: {'name': row['name'], 'password': row['password']} for row in result}}
+                cursor.close()
+        except mysql.connector.Error as e:
+            st.error(f"Error connecting to MySQL database: {e}")
+        finally:
+            if connection.is_connected():
+                connection.close()
+        authenticator = stauth.Authenticate(credentials, '', '', 0)
+        return authenticator
+
     if "page" not in st.session_state:
         st.session_state.page = "login"
 
@@ -160,6 +171,8 @@ def authenticate():
         method = st.session_state.config['authentication']['method']
         if method == "YAML":
             authenticator = from_yaml()
+        elif method == "MYSQL":
+            authenticator = from_mysql()
         else:
             raise ValueError(f"Invalid authentication method: {method}")
         st.session_state.authenticator = authenticator
@@ -203,6 +216,43 @@ def show_login_page():
         pass
 
 def show_profile_page():
+    """
+    Show the profile page.
+    """
+    def update_yaml():
+        with open("./auth.yaml", 'w', encoding="utf-8-sig") as f:
+            data = {
+                'cookie': {
+                    'cookie_name': st.session_state.authenticator.cookie_handler.cookie_name,
+                    'cookie_key': st.session_state.authenticator.cookie_handler.cookie_key,
+                    'cookie_expiry_days': st.session_state.authenticator.cookie_handler.cookie_expiry_days,
+                },
+                'credentials': st.session_state.authenticator.authentication_handler.credentials
+            }
+            
+            yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    def update_mysql():
+        credentials = st.session_state.authenticator.authentication_handler.credentials
+        password = credentials['usernames'][st.session_state.username]['password']
+        try:
+            connection = mysql.connector.connect(
+                user=st.session_state.config['authentication']['user'],
+                password=st.session_state.config['authentication']['password'],
+                host=st.session_state.config['authentication']['host'],
+                database=st.session_state.config['authentication']['database']
+            )
+            if connection.is_connected():
+                cursor = connection.cursor()
+                cursor.execute(f"UPDATE {st.session_state.config['authentication']['table']} SET password = %s WHERE username = %s", (password, st.session_state.username))
+                connection.commit()
+                cursor.close()
+        except mysql.connector.Error as e:
+            st.error(f"Error connecting to MySQL database: {e}")
+        finally:
+            if connection.is_connected():
+                connection.close()
+
     labels = {
         'Form name': {'English': 'Reset password', 'Korean': '비밀번호 변경', 'Spanish': 'Restablecer contraseña', 'Japanese': 'パスワードをリセットする'},
         'Current password': {'English': 'Current password', 'Korean': '현재 비밀번호', 'Spanish': 'Contraseña actual', 'Japanese': '現在のパスワード'},
@@ -220,7 +270,11 @@ def show_profile_page():
     if st.session_state.authenticator.reset_password(st.session_state.username, fields={'Form name': labels['Form name'][st.session_state.language], 'Current password': labels['Current password'][st.session_state.language], 'New password': labels['New password'][st.session_state.language], 'Repeat password': labels['Repeat password'][st.session_state.language], 'Reset': labels['Reset'][st.session_state.language]}):
         st.success(labels['Change success'][st.session_state.language])
         time.sleep(3)
-        update_yaml_file()
+        method = st.session_state.config['authentication']['method']
+        if method == "YAML":
+            update_yaml()
+        elif method == "MYSQL":
+            update_mysql()
         st.session_state.page = "chatbot"
         st.rerun()
 
