@@ -342,10 +342,6 @@ def show_history_page():
             aws_secret_access_key=st.session_state.config['history']['aws_secret_access_key']
         )
         s3_folder = f"{st.session_state.config['history']['users_dir']}/{st.session_state.username}"
-        folder_exists = s3.list_objects(Bucket=bucket, Prefix=s3_folder)
-        if 'Contents' not in folder_exists:
-            s3.put_object(Bucket=bucket, Key=s3_folder)
-
         st.header(labels['Current conversation'][st.session_state.language])
         with st.form(labels['Save conversation'][st.session_state.language], clear_on_submit=True):
             file_name = st.text_input(labels['Conversation name'][st.session_state.language])
@@ -363,7 +359,7 @@ def show_history_page():
 
         st.header(labels['Past conversations'][st.session_state.language])
         file_list = []
-        folder_exists = s3.list_objects(Bucket=bucket, Prefix=s3_folder)
+        folder_exists = s3.list_objects(Bucket=bucket, Prefix=f"{s3_folder}/")
         if 'Contents' in folder_exists:
             for obj in folder_exists['Contents']:
                 file_list.append(os.path.basename(obj['Key']))
