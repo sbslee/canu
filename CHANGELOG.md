@@ -1,6 +1,7 @@
 # CHANGELOG
 
-## 0.15.0 (in development)
+## 0.15.0 (2024-07-01)
+* Fix a bug where S3 history was not working properly.
 
 ## 0.14.0 (2024-06-30)
 * Add Spanish and Japanese language support.
