@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.16.0 (in development)
+
 ## 0.15.0 (2024-07-01)
 * Fix a bug where S3 history was not working properly.
 
