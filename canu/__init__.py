@@ -6,6 +6,8 @@ import openai
 import mysql.connector
 from PIL import Image
 import boto3
+import xlrd
+import openpyxl
 
 class Container():
     def __init__(self, role, blocks):
@@ -431,6 +433,22 @@ def handle_files():
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
             add_message("user", f"파일 업로드: `{file_name}`")
+
+            # Convert .xls to .xlsx.
+            if file_name.endswith(".xls"):
+                wb1 = xlrd.open_workbook(file_path)
+                wb2 = openpyxl.Workbook()
+                for sheet_name in wb1.sheet_names():
+                    sheet1 = wb1.sheet_by_name(sheet_name)
+                    sheet2 = wb2.create_sheet(title=sheet_name)
+                    for row in range(sheet1.nrows):
+                        for col in range(sheet1.ncols):
+                            sheet2.cell(row=row+1, column=col+1, value=sheet1.cell_value(row, col))
+                wb2.remove(wb2['Sheet'])
+                file_name = file_name.replace(".xls", ".xlsx")
+                file_path = file_path.replace(".xls", ".xlsx")
+                wb2.save(file_path)
+
             if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".jpeg"):
                 file = st.session_state.client.files.create(file=Path(file_path), purpose="vision")
                 content=[
