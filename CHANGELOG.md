@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.17.0 (in development)
+
 ## 0.16.0 (2024-07-15)
 * Add `.xls` support.
 
