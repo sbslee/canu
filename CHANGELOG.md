@@ -1,6 +1,8 @@
 # CHANGELOG
 
 ## 0.17.0 (in development)
+* Add feature to hide code blocks.
+* Add feature to hide download buttons.
 
 ## 0.16.0 (2024-07-15)
 * Add `.xls` support.
