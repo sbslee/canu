@@ -10,10 +10,12 @@ import xlrd
 import openpyxl
 
 class Container():
-    def __init__(self, role, blocks):
+    def __init__(self, role, blocks, show_code_block=True, show_download_button=True):
         self.container = st.empty()
         self.role = role
         self.blocks = blocks
+        self.show_code_block = show_code_block
+        self.show_download_button = show_download_button
         self.code_interpreter_files = {}
 
     def _write_blocks(self):
@@ -24,18 +26,18 @@ class Container():
             for block in self.blocks:
                 if block['type'] == 'text':
                     st.write(block['content'], unsafe_allow_html=True)
-                elif block['type'] == 'code':
+                elif block['type'] == 'code' and self.show_code_block:
                     st.code(block['content'])
                 elif block['type'] == 'image':
                     st.image(block['content'])
-            if self.code_interpreter_files:
+            if self.code_interpreter_files and self.show_download_button:
                 for filename, content in self.code_interpreter_files.items():
                     if filename.endswith('.csv'):
                         mime = "text/csv"
                     elif filename.endswith('.png'):
                         mime = "image/png"
                     else:
-                        mime = "text/plain"        
+                        mime = "text/plain"
                     st.download_button(
                         label=f"{filename}",
                         data=content,
@@ -60,15 +62,17 @@ class Container():
             self._write_blocks()
 
 class EventHandler(openai.AssistantEventHandler):
-    def __init__(self, container=None, show_quotation_marks=True):
+    def __init__(self, container=None, show_quotation_marks=True, show_code_block=True, show_download_button=True):
         super().__init__()
         self.container = container
         self.redundant = container is not None
         self.show_quotation_marks = show_quotation_marks
+        self.show_code_block = show_code_block
+        self.show_download_button = show_download_button
 
     def on_text_delta(self, delta, snapshot):
         if self.container is None:
-            self.container = Container("assistant", [])
+            self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
         if not self.container.blocks or self.container.blocks[-1]['type'] != 'text':
             self.container.blocks.append({'type': 'text', 'content': ""})
         if delta.annotations is not None:
@@ -90,7 +94,7 @@ class EventHandler(openai.AssistantEventHandler):
 
     def on_image_file_done(self, image_file):
         if self.container is None:
-            self.container = Container("assistant", [])
+            self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
         if not self.container.blocks or self.container.blocks[-1]['type'] != 'image':
             self.container.blocks.append({'type': 'image', 'content': ""})
         image_data = st.session_state.client.files.content(image_file.file_id)
@@ -103,7 +107,7 @@ class EventHandler(openai.AssistantEventHandler):
             pass
         elif delta.type == "code_interpreter":
             if self.container is None:
-                self.container = Container("assistant", [])
+                self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
             if delta.code_interpreter.input:
                 if not self.container.blocks or self.container.blocks[-1]['type'] != 'code':
                     self.container.blocks.append({'type': 'code', 'content': ""})
@@ -186,9 +190,9 @@ def add_message(role, content):
         Container(role, [{'type': 'text', 'content': content}])
     )
 
-def write_stream(event_handler=None, show_quotation_marks=True):
+def write_stream(event_handler=None, show_quotation_marks=True, show_code_block=True, show_download_button=True):
     if event_handler is None:
-        event_handler = EventHandler(show_quotation_marks=show_quotation_marks)
+        event_handler = EventHandler(show_quotation_marks=show_quotation_marks, show_code_block=show_code_block, show_download_button=show_download_button)
     if not is_thread_locked():
         with st.session_state.client.beta.threads.runs.stream(
             thread_id=st.session_state.thread.id,
