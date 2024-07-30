@@ -452,6 +452,12 @@ def handle_files():
                 file_name = file_name.replace(".xls", ".xlsx")
                 file_path = file_path.replace(".xls", ".xlsx")
                 wb2.save(file_path)
+            # Convert .hwp to .html.
+            elif file_name.endswith(".hwp"):
+                with open(file_path, 'rb') as f1:
+                    file_name = file_name.replace(".hwp", ".html")
+                    file_path = file_path.replace(".hwp", ".html")
+                    os.system(f"""hwp5html "{file_path.replace('.html', '.hwp')}" --output "{file_path}" --html""")
 
             if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".jpeg"):
                 file = st.session_state.client.files.create(file=Path(file_path), purpose="vision")
