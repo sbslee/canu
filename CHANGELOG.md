@@ -1,8 +1,8 @@
 # CHANGELOG
 
 ## 0.17.0 (in development)
-* Add feature to hide code blocks.
-* Add feature to hide download buttons.
+* Add feature to hide code blocks in Code Interpreter.
+* Add feature to hide download buttons in Code Interpreter.
 
 ## 0.16.0 (2024-07-15)
 * Add `.xls` support.
