@@ -17,7 +17,7 @@ class Container():
         self.show_code_block = show_code_block
         self.show_download_button = show_download_button
         self.code_interpreter_files = {}
-        
+
     def _write_blocks(self):
         avatar = None
         if self.role == "assistant" and "assistant_avatar" in st.session_state:
@@ -26,14 +26,11 @@ class Container():
             for block in self.blocks:
                 if block['type'] == 'text':
                     st.write(block['content'], unsafe_allow_html=True)
-                elif block['type'] == 'code':
-                    if self.show_code_block is True:
-                        st.code(block['content'])
-                    else:
-                        st.write("잠시만 기다려 주세요.")
+                elif block['type'] == 'code' and self.show_code_block:
+                    st.code(block['content'])
                 elif block['type'] == 'image':
                     st.image(block['content'])
-            if self.code_interpreter_files and self.show_download_button is True:
+            if self.code_interpreter_files and self.show_download_button:
                 for filename, content in self.code_interpreter_files.items():
                     if filename.endswith('.csv'):
                         mime = "text/csv"
@@ -75,7 +72,7 @@ class EventHandler(openai.AssistantEventHandler):
 
     def on_text_delta(self, delta, snapshot):
         if self.container is None:
-            self.container = Container("assistant", [], self.show_code_block, self.show_download_button)
+            self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
         if not self.container.blocks or self.container.blocks[-1]['type'] != 'text':
             self.container.blocks.append({'type': 'text', 'content': ""})
         if delta.annotations is not None:
@@ -97,7 +94,7 @@ class EventHandler(openai.AssistantEventHandler):
 
     def on_image_file_done(self, image_file):
         if self.container is None:
-            self.container = Container("assistant", [], self.show_code_block, self.show_download_button)
+            self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
         if not self.container.blocks or self.container.blocks[-1]['type'] != 'image':
             self.container.blocks.append({'type': 'image', 'content': ""})
         image_data = st.session_state.client.files.content(image_file.file_id)
@@ -110,7 +107,7 @@ class EventHandler(openai.AssistantEventHandler):
             pass
         elif delta.type == "code_interpreter":
             if self.container is None:
-                self.container = Container("assistant", [], self.show_code_block, self.show_download_button)
+                self.container = Container("assistant", [], show_code_block=self.show_code_block, show_download_button=self.show_download_button)
             if delta.code_interpreter.input:
                 if not self.container.blocks or self.container.blocks[-1]['type'] != 'code':
                     self.container.blocks.append({'type': 'code', 'content': ""})
