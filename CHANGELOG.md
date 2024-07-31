@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## 0.17.0 (2024-08-01)
+* Add feature to hide code blocks in Code Interpreter.
+* Add feature to hide download buttons in Code Interpreter.
+* Add `.hwp` support.
+
 ## 0.16.0 (2024-07-15)
 * Add `.xls` support.
 
