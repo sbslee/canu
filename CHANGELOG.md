@@ -1,5 +1,7 @@
 # CHANGELOG
 
+## 0.18.0 (in development)
+
 ## 0.17.0 (2024-08-01)
 * Add feature to hide code blocks in Code Interpreter.
 * Add feature to hide download buttons in Code Interpreter.
