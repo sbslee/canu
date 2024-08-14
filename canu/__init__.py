@@ -8,6 +8,7 @@ from PIL import Image
 import boto3
 import xlrd
 import openpyxl
+import traceback
 
 class Container():
     def __init__(self, role, blocks, show_code_block=True, show_download_button=True):
@@ -333,7 +334,7 @@ def show_history_page():
                         container = Container(role, blocks)
                         st.session_state.containers.append(container)
                         create_message(role, container.get_content())
-                st.session_state.page = "chatbot"        
+                st.session_state.page = "chatbot"
                 st.rerun()
         with col2:
             if option is not None and st.button(labels['Delete'][st.session_state.language]):
@@ -419,9 +420,14 @@ def show_history_page():
         raise ValueError(f"Invalid history storage method: {st.session_state.config['history']['method']}")
 
 def handle_files():
+    labels = {
+        'Unsupported file type': {'English': 'Unsupported file type', 'Korean': '지원하지 않는 파일 형식', 'Spanish': 'Tipo de archivo no compatible', 'Japanese': 'サポートされていないファイル形式'},
+        'Upload file': {'English': 'File Upload', 'Korean': '파일 업로드', 'Spanish': 'Subir archivo', 'Japanese': 'ファイルアップロード'},
+        'Delete file': {'English': 'Delete file', 'Korean': '파일 삭제', 'Spanish': 'Eliminar archivo', 'Japanese': 'ファイル削除'},
+    }
     supported_files = {
-        "file_search": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.texv', '.txt', '.css', '.js', '.sh', '.ts'],
-        "code_interpreter": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.tex', '.txt', '.css', '.js', '.sh', '.ts', '.csv', '.jpeg', '.jpg', '.gif', '.png', '.tar', '.xlsx', '.xml', '.zip']
+        "file_search": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.texv', '.txt', '.css', '.js', '.sh', '.ts', '.xls', '.hwp'],
+        "code_interpreter": ['.c', '.cs', '.cpp', '.doc', '.docx', '.html', '.java', '.json', '.md', '.pdf', '.php', '.pptx', '.py', '.rb', '.tex', '.txt', '.css', '.js', '.sh', '.ts', '.csv', '.jpeg', '.jpg', '.gif', '.png', '.tar', '.xlsx', '.xml', '.zip', '.xls', '.hwp']
     }
 
     uploaded_files = get_uploaded_files()
@@ -431,12 +437,22 @@ def handle_files():
         file_name = uploaded_file.name
         if upload_id in st.session_state.upload_ids:
             continue
+        _, file_extension = os.path.splitext(file_name)        
+        if file_extension not in supported_files["file_search"] and file_extension not in supported_files["code_interpreter"]:
+            error_message = f"{labels['Unsupported file type'][st.session_state.language]}: `{file_name}`"
+            add_message("user", error_message)
+            try:
+                raise ValueError(error_message)
+            except ValueError as e:
+                traceback.print_exc()
+            st.session_state.file_uploader_key += 1
+            st.rerun()
         with tempfile.TemporaryDirectory() as t:
             file_path = os.path.join(t, file_name)
 
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.getvalue())
-            add_message("user", f"파일 업로드: `{file_name}`")
+            add_message("user", f"{labels['Upload file'][st.session_state.language]}: `{file_name}`")
 
             # Convert .xls to .xlsx.
             if file_name.endswith(".xls"):
@@ -462,7 +478,7 @@ def handle_files():
             if file_name.endswith(".jpg") or file_name.endswith(".png") or file_name.endswith(".jpeg"):
                 file = st.session_state.client.files.create(file=Path(file_path), purpose="vision")
                 content=[
-                    {"type": "text", "text": f"파일 업로드: `{file_name}`"},
+                    {"type": "text", "text": f"{labels['Upload file'][st.session_state.language]}: `{file_name}`"},
                     {"type": "image_file", "image_file": {"file_id": file.id}}
                 ]
                 create_message("user", content)
@@ -476,7 +492,7 @@ def handle_files():
                 if not tools:
                     tools.append({"type": "code_interpreter"})
                 attachments = [{"file_id": file.id, "tools": tools}]
-                content=[{"type": "text", "text": f"파일 업로드: `{file_name}`"}]
+                content=[{"type": "text", "text": f"{labels['Upload file'][st.session_state.language]}: `{file_name}`"}]
                 create_message("user", content, attachments)
             st.session_state.upload_ids[upload_id] = {'file_id': file.id, 'file_name': file_name}
 
@@ -485,7 +501,7 @@ def handle_files():
         file_id = upload_data["file_id"]
         if upload_id not in [x.file_id for x in uploaded_files]:
             st.session_state.client.files.delete(file_id)
-            add_message("user", f"파일 삭제: `{file_name}`")
+            add_message("user", f"{labels['Delete file'][st.session_state.language]}: `{file_name}`")
             del st.session_state.upload_ids[upload_id]
 
 def list_messages():
