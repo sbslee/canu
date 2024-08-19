@@ -1,6 +1,7 @@
 # CHANGELOG
 
-## 0.18.0 (in development)
+## 0.18.0 (2024-08-19)
+* Fix a bug where the chat crashes when an unsupported file is uploaded.
 
 ## 0.17.0 (2024-08-01)
 * Add feature to hide code blocks in Code Interpreter.
